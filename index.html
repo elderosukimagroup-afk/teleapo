@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>川嶋メソッド テレアポ管理</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📞</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--blue:#3b82f6;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--purple:#8b5cf6;--gray:#64748b;--navy:#1a237e;--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--text:#1e293b;--sub:#64748b;--light:#f1f5f9}
+body{font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;max-width:480px;margin:0 auto;display:flex;flex-direction:column;font-size:14px;line-height:1.5}
+button{font-family:inherit;cursor:pointer;border:none;background:none;-webkit-appearance:none}
+input,textarea,select{font-family:inherit;font-size:14px;outline:none}
+.card{background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border)}
+.btn{width:100%;padding:15px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:52px;cursor:pointer}
+.btn-green{background:linear-gradient(135deg,#10b981,#059669)}
+.btn-navy{background:var(--navy)}
+.btn-blue{background:var(--blue)}
+.sm-btn{flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--sub);font-size:12px;font-weight:600;min-height:36px}
+.nav-btn{flex:1;padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--sub);font-size:13px;font-weight:600;text-align:center;min-height:44px}
+.label{display:block;font-size:11px;font-weight:700;color:var(--sub);margin-bottom:3px}
+.input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)}
+.input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.ta{width:100%;padding:12px;border:1.5px solid var(--border);border-radius:10px;background:var(--light);color:var(--text);resize:vertical}
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:700;z-index:999;animation:fadeIn .3s}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.back-btn{background:var(--light);border:none;border-radius:8px;padding:6px 12px;color:var(--sub);font-size:12px;font-weight:600}
+.att-btn{padding:10px 4px;border:2px solid;border-radius:8px;background:var(--card);font-size:12px;font-weight:700;min-height:42px}
+.kpi{background:var(--card);border-radius:12px;padding:12px;text-align:center;border:1px solid var(--border)}
+.menu-btn{padding:14px 12px;border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--text);font-size:14px;font-weight:700;text-align:left}
+.err{margin-top:8px;padding:10px;background:#fef2f2;border-radius:8px;font-size:12px;color:#dc2626}
+.mono{font-family:'Courier New',monospace}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Login */
+.login-bg{min-height:100vh;background:linear-gradient(135deg,#0d1b2a,#1a237e,#283593);display:flex;align-items:center;justify-content:center;padding:20px}
+.login-card{background:#fff;border-radius:18px;padding:28px 24px;max-width:340px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25)}
+.pin-box{width:48px;height:56px;border-radius:12px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--navy)}
+.pin-box.active{border-color:var(--navy);background:#e8eaf6}
+.numpad button{height:48px;border-radius:10px;font-size:20px;border:1.5px solid var(--border);background:#fff;color:var(--navy)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ═══════════════════════════════════════════
+// 川嶋メソッド テレアポ管理 v9 — Vanilla JS
+// 依存ゼロ・単一HTMLファイル
+// ═══════════════════════════════════════════
+
+const STAFF=[{id:"s091",name:"柏木幸代",pin:"091"},{id:"s092",name:"園田絵里",pin:"092"},{id:"s093",name:"堀内真紀子",pin:"093"}];
+
+const STEPS=[
+{id:1,t:"不信感払拭",c:"#3b82f6",ic:"🤝",cps:[
+{id:"1a",l:"第一声",s:"お忙しいところ恐れ入ります。\n○○の△△と申します。",r:1,tip:"明るくゆっくり"},
+{id:"1b",l:"用件提示",s:"人材確保について\n1分だけお時間よろしいでしょうか？",r:1,tip:"「1分だけ」"},
+{id:"1c",l:"第三者話法",s:"先日○○市の施設様にも\nお話しさせていただき\n大変喜ばれました。",r:1,tip:"近隣事例"},
+{id:"1d",l:"許可取り",s:"少しだけお話を\n聞いていただけますか？",r:0,tip:"Yesを取る"},
+]},
+{id:2,t:"関心喚起",c:"#10b981",ic:"💡",cps:[
+{id:"2a",l:"トレンド",s:"特定技能の外国人介護士が\n注目されているのは\nご存知ですか？",r:1,tip:"質問で巻き込む"},
+{id:"2b",l:"数字",s:"導入施設様の92%が\n『もっと早く採用すれば』\nとおっしゃっています。",r:1,tip:"数字は武器"},
+{id:"2c",l:"匂わせ",s:"完全成功報酬で\nリスクなく始められる\n方法があるんです。",r:1,tip:"好奇心刺激"},
+{id:"2d",l:"橋渡し",s:"ちなみに施設長様のところは\n人材確保いかがですか？",r:1,tip:"Step3へ"},
+]},
+{id:3,t:"問題・願望",c:"#f59e0b",ic:"👂",cps:[
+{id:"3a",l:"現状",s:"介護スタッフは\n何名体制ですか？",r:1,tip:"数字で把握"},
+{id:"3b",l:"課題",s:"人材確保で一番\nお困りのことは？",r:1,tip:"最重要"},
+{id:"3c",l:"影響",s:"運営面で\nどんな影響が？",r:1,tip:"痛み認識"},
+{id:"3d",l:"理想",s:"どんな状態なら\n安心ですか？",r:1,tip:"ゴール言語化"},
+{id:"3e",l:"確認",s:"○○が課題で\n△△が理想ですね？",r:1,tip:"オウム返し"},
+]},
+{id:4,t:"解決→アポ",c:"#ef4444",ic:"🎯",cps:[
+{id:"4a",l:"解決策",s:"その課題、川嶋メソッドで\n解決できます。",r:1,tip:"課題をそのまま"},
+{id:"4b",l:"事例",s:"同じ悩みの施設様が\n3ヶ月で人材確保に\n成功しました。",r:1,tip:"同規模事例"},
+{id:"4c",l:"リスク0",s:"完全成功報酬で\n費用は一切かかりません。",r:1,tip:"断る理由を潰す"},
+{id:"4d",l:"クロージング",s:"来週の前半と後半\nどちらがご都合\nよろしいですか？",r:1,tip:"二者択一"},
+{id:"4e",l:"確定",s:"では○月○日○時に\nお伺いします。\nありがとうございました。",r:1,tip:"復唱"},
+]}
+];
+
+const ALL_CP=[];STEPS.forEach(s=>s.cps.forEach(c=>ALL_CP.push({...c,sId:s.id,sC:s.c,sT:s.t,sIc:s.ic})));
+const REQ_CP=ALL_CP.filter(c=>c.r);
+
+const RES_LIST=[
+{id:"appo",l:"アポ獲得",i:"🎯",c:"#10b981"},
+{id:"cb",l:"再架電",i:"📞",c:"#f59e0b"},
+{id:"info",l:"資料送付",i:"📨",c:"#3b82f6"},
+{id:"absent",l:"不在",i:"🚫",c:"#6b7280"},
+{id:"refused",l:"断り",i:"✋",c:"#ef4444"},
+{id:"wrong",l:"不通",i:"❌",c:"#9ca3af"},
+{id:"fu",l:"フォロー",i:"📋",c:"#8b5cf6"},
+{id:"other",l:"その他",i:"📝",c:"#64748b"},
+];
+
+// Storage
+const LS=(k,v)=>{if(v===undefined){try{return JSON.parse(localStorage.getItem(k))}catch{return null}}try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+
+// Helpers
+function dial(num){if(!num)return;const c=num.replace(/[^\d+\-]/g,"");if(!c)return;const a=document.createElement("a");a.href="tel:"+c;a.style.display="none";document.body.appendChild(a);a.click();setTimeout(()=>{try{document.body.removeChild(a)}catch{}},200)}
+function fmtTime(){const n=new Date();return[n.getHours(),n.getMinutes(),n.getSeconds()].map(v=>String(v).padStart(2,"0")).join(":")}
+function fmtDate(){const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0")}
+function fmtJP(){const n=new Date();return n.getFullYear()+"年"+(n.getMonth()+1)+"月"+n.getDate()+"日"}
+function parseCSV(text){const lines=text.trim().split(/\r?\n/).filter(l=>l.trim());if(lines.length<2)return null;const sep=lines[0].includes("\t")?"\t":",";const parse=l=>{if(sep==="\t")return l.split("\t").map(c=>c.trim().replace(/^"|"$/g,""));const r=[];let cur="",q=false;for(let i=0;i<l.length;i++){const ch=l[i];if(ch==='"')q=!q;else if(ch===","&&!q){r.push(cur.trim());cur=""}else cur+=ch}r.push(cur.trim());return r};const hdr=parse(lines[0]);const data=lines.slice(1).map(parse).filter(r=>r.some(c=>c));if(!data.length)return null;const lh=hdr.map(h=>h.toLowerCase());const f=ps=>lh.findIndex(c=>ps.some(p=>c.includes(p)));const cm={co:f(["施設","会社","法人","事業所","名称","company","name"]),ph:f(["電話","tel","phone","番号"]),pe:f(["担当","氏名","施設長","管理者","代表"]),ad:f(["住所","所在地","address"])};if(cm.co<0&&cm.ph<0)return null;return{hdr,data,cm}}
+function gasPost(url,data){if(!url)return;try{fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(data),mode:"no-cors"})}catch{}}
+
+// ═══ APP STATE ═══
+const S={
+  view:"login",user:null,pin:"",pinErr:"",
+  rows:[],cm:null,ci:0,
+  callHist:[],appoList:[],att:{},gasUrl:"",
+  showPaste:false,pasteVal:"",pasteErr:"",
+  ck:{},cardI:0,timerSec:0,timerOn:false,
+  res:null,callNotes:"",
+  af:{project:"",company:"",person:"",gender:"男",phone:"",role:"",address:"",datetime:"",email:"",personality:""},
+  toast:""
+};
+let timerInterval=null;
+
+// Load saved data
+(function(){
+  const l=LS("k9-list");if(l){S.rows=l.d||[];S.cm=l.c||null}
+  S.callHist=LS("k9-hist")||[];
+  S.appoList=LS("k9-appo")||[];
+  S.gasUrl=LS("k9-gas")||"";
+})();
+
+function loadAtt(){if(S.user){S.att=LS("k9-att-"+S.user.id)||{}}}
+
+// Timer
+function startTimer(){S.timerSec=0;S.timerOn=true;clearInterval(timerInterval);timerInterval=setInterval(()=>{S.timerSec++;render()},1000)}
+function stopTimer(){S.timerOn=false;clearInterval(timerInterval)}
+function fmtTimer(){return String(Math.floor(S.timerSec/60)).padStart(2,"0")+":"+String(S.timerSec%60).padStart(2,"0")}
+
+function flash(m){S.toast=m;render();setTimeout(()=>{S.toast="";render()},2500)}
+function gf(row,f){if(!row||!S.cm||S.cm[f]<0)return"";return String(row[S.cm[f]]||"").trim()}
+function today(){return fmtDate()}
+function tdc(){return S.callHist.filter(c=>c.d===today()&&c.uid===S.user?.id)}
+function called(i){return tdc().some(c=>c.pi===i)}
+function comp(){return REQ_CP.length>0?Math.round(REQ_CP.filter(c=>S.ck[c.id]).length/REQ_CP.length*100):0}
+function curA(){return S.att[today()]||{}}
+
+// ═══ ACTIONS ═══
+function tryLogin(v){if(v.length!==3)return;const f=STAFF.find(s=>s.pin===v);if(f){S.user=f;S.view="home";S.pin="";S.pinErr="";loadAtt()}else{S.pinErr="該当番号なし";S.pin=""}render()}
+
+function doImport(){S.pasteErr="";const r=parseCSV(S.pasteVal);if(!r){S.pasteErr="読込失敗。1行目にヘッダー（施設名, 電話番号等）が必要";render();return}S.rows=r.data;S.cm=r.cm;S.ci=0;LS("k9-list",{d:r.data,c:r.cm});S.showPaste=false;S.pasteVal="";flash("✅ "+r.data.length+"件読込完了")}
+
+function punch(type){const t=fmtTime();const td=today();if(!S.att[td])S.att[td]={};S.att[td][type]=t;LS("k9-att-"+S.user.id,S.att);const lb={ci:"出勤",co:"退勤",bs:"休憩開始",be:"休憩終了"};flash("✅ "+lb[type]+" "+t.slice(0,5));if(S.gasUrl){const a=S.att[td];gasPost(S.gasUrl,{type:"attendance",name:S.user.name,pin:S.user.pin,date:fmtJP(),clockIn:a.ci||"",clockOut:a.co||"",breakStart:a.bs||"",breakEnd:a.be||""})}}
+
+function startCall(){S.ck={};S.cardI=0;startTimer();S.view="call";const cur=S.rows[S.ci];const ph=cur?gf(cur,"ph"):"";if(ph)setTimeout(()=>dial(ph),400);render()}
+
+function saveResult(){if(!S.res)return;const cur=S.rows[S.ci];const sp=STEPS.map(st=>({id:st.id,p:Math.round(st.cps.filter(c=>S.ck[c.id]).length/st.cps.length*100)}));const e={id:Date.now(),uid:S.user.id,co:cur?gf(cur,"co"):"—",pe:cur?gf(cur,"pe"):"—",ph:cur?gf(cur,"ph"):"",r:S.res,cp:comp(),dur:fmtTimer(),n:S.callNotes,sp,d:today(),tm:fmtTime().slice(0,5),pi:S.ci};S.callHist=[e,...S.callHist];LS("k9-hist",S.callHist);S.ck={};S.cardI=0;S.callNotes="";stopTimer();S.timerSec=0;if(S.res==="appo"){S.af={...S.af,company:cur?gf(cur,"co"):"",person:cur?gf(cur,"pe"):"",phone:cur?gf(cur,"ph"):"",address:cur?gf(cur,"ad"):""};S.res=null;S.view="appo_form"}else{advanceNext();S.res=null;flash("✅ 保存完了");S.view="home"}render()}
+
+function advanceNext(){const nx=S.rows.findIndex((_,i)=>i>S.ci&&!called(i));if(nx>=0)S.ci=nx;else if(S.ci<S.rows.length-1)S.ci++}
+
+function sendAppo(){const a=S.af;const body="アポイント報告\n\n案件名: "+a.project+"\n会社名(施設名): "+a.company+"\n担当者名: "+a.person+"（"+a.gender+"）\n電話番号: "+a.phone+"\n役職: "+a.role+"\n住所: "+a.address+"\nアポイント日時: "+a.datetime+"\nメールアドレス: "+a.email+"\n人柄: "+a.personality+"\n\n報告者: "+S.user.name;const subj="【アポ報告】"+a.company+" "+a.person+"様 - "+S.user.name;const entry={...a,id:Date.now(),reporter:S.user.name,date:today()};S.appoList=[entry,...S.appoList];LS("k9-appo",S.appoList);window.location.href="mailto:a.kusunoki@sukimagroup.jp?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(body);setTimeout(()=>{S.af={project:"",company:"",person:"",gender:"男",phone:"",role:"",address:"",datetime:"",email:"",personality:""};advanceNext();flash("✅ アポ送信完了");S.view="home";render()},1500)}
+
+function doCheck(){const cp=ALL_CP[S.cardI];if(!cp)return;S.ck[cp.id]=!S.ck[cp.id];if(S.ck[cp.id]&&S.cardI<ALL_CP.length-1)setTimeout(()=>{S.cardI++;render()},350);render()}
+
+// ═══ RENDER ═══
+function render(){
+const app=document.getElementById("app");
+const cur=S.rows[S.ci]||null;
+const ca=curA();
+const tc=tdc();
+const tdAppo=tc.filter(c=>c.r==="appo").length;
+
+// LOGIN
+if(S.view==="login"){
+app.innerHTML=`<div class="login-bg"><div class="login-card">
+<div style="text-align:center;margin-bottom:18px"><div style="font-size:36px">📞</div><div style="font-size:18px;font-weight:800;color:#1a237e">川嶋メソッド</div><div style="font-size:9px;color:#90a4ae;letter-spacing:2px">テレアポ統合管理</div></div>
+<div style="text-align:center;font-size:13px;color:#455a64;margin-bottom:12px">3桁の従業員番号を入力</div>
+<div style="display:flex;justify-content:center;gap:10px;margin-bottom:12px">
+${[0,1,2].map(i=>`<div class="pin-box ${S.pin.length>i?"active":""}">${S.pin[i]?"●":""}</div>`).join("")}
+</div>
+<div class="numpad" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;max-width:200px;margin:0 auto 12px">
+${[1,2,3,4,5,6,7,8,9,null,0,"⌫"].map(n=>`<button onclick="${n===null?"":n==="⌫"?"pinDel()":"pinAdd("+n+")"}" style="${n===null?"visibility:hidden":""}">${n===null?"":n}</button>`).join("")}
+</div>
+${S.pinErr?`<div style="text-align:center;font-size:12px;color:#e53935;font-weight:700">${S.pinErr}</div>`:""}
+<div style="text-align:center;font-size:10px;color:#b0bec5;margin-top:12px">091:柏木 / 092:園田 / 093:堀内</div>
+</div></div>`;return}
+
+let html=`${S.toast?`<div class="toast">${S.toast}</div>`:""}`;
+
+// HEADER
+html+=`<header class="hdr"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">📞</span><div><div style="font-size:12px;font-weight:800">川嶋メソッド</div><div style="font-size:10px;color:var(--sub)">${S.user.name} | <span id="clock">${fmtTime().slice(0,5)}</span></div></div></div>`;
+if(S.view==="call")html+=`<div style="display:flex;align-items:center;gap:4px;background:#ecfdf5;padding:4px 8px;border-radius:12px"><div style="width:6px;height:6px;border-radius:50%;background:#10b981;animation:pulse 1.5s infinite"></div><span class="mono" style="font-size:14px;font-weight:800;color:#059669">${fmtTimer()}</span></div>`;
+html+=`<button class="back-btn" onclick="logout()">ログアウト</button></header>`;
+
+// PASTE MODAL
+if(S.showPaste)html+=`<div class="overlay" onclick="closePaste()"><div class="sheet" onclick="event.stopPropagation()">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid var(--border)"><span style="font-size:16px;font-weight:800">📋 リスト読込</span><button onclick="closePaste()" style="font-size:22px;color:#94a3b8">✕</button></div>
+<div style="padding:16px"><div style="font-size:12px;color:var(--sub);margin-bottom:8px;line-height:1.6">スプレッドシートで全セルコピー → 下に貼付 → 読込む</div>
+<textarea id="pasteArea" class="ta" rows="8" placeholder="施設名\t電話番号\t担当者名\n...">${S.pasteVal}</textarea>
+<button class="btn btn-blue" style="margin-top:8px" onclick="doImport()">📥 読み込む</button>
+${S.pasteErr?`<div class="err">${S.pasteErr}</div>`:""}
+</div></div></div>`;
+
+// MAIN
+html+=`<main style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px">`;
+
+// HOME
+if(S.view==="home"){
+  // Attendance
+  html+=`<div class="card" style="border-left:4px solid ${ca.ci&&!ca.co?"#10b981":ca.co?"#5c6bc0":"#78909c"}">
+  <div style="font-size:12px;font-weight:800;color:#1a237e;margin-bottom:6px">⏱ 勤怠 — ${fmtJP()}</div>
+  <div style="display:flex;gap:6px;font-size:11px;color:var(--sub);margin-bottom:6px;flex-wrap:wrap">
+  <span>出勤:<b>${ca.ci?ca.ci.slice(0,5):"—"}</b></span><span>退勤:<b>${ca.co?ca.co.slice(0,5):"—"}</b></span><span>休憩:<b>${ca.bs?ca.bs.slice(0,5):"—"}</b>〜<b>${ca.be?ca.be.slice(0,5):"—"}</b></span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px">
+  ${[["ci","出勤","#10b981",!!ca.ci],["bs","休憩始","#f59e0b",!ca.ci||!!ca.bs],["be","休憩終","#3b82f6",!ca.bs||!!ca.be],["co","退勤","#5c6bc0",!ca.ci||!!ca.co]].map(([k,l,c,dis])=>`<button class="att-btn" style="border-color:${c};color:${c};opacity:${dis?.25:1}" onclick="${dis?"":"punch('"+k+"')"}" ${dis?"disabled":""}>${l}</button>`).join("")}
+  </div></div>`;
+
+  // KPI
+  html+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+  ${[[tc.length,"架電","#3b82f6"],[tdAppo,"アポ","#10b981"],[tc.length>0?Math.round(tdAppo/tc.length*100)+"%":"0%","アポ率","#f59e0b"]].map(([v,l,c])=>`<div class="kpi"><div style="font-size:22px;font-weight:800;color:${c}">${v}</div><div style="font-size:10px;color:var(--sub)">${l}</div></div>`).join("")}</div>`;
+
+  // Next call
+  if(S.rows.length>0&&cur){
+    html+=`<div class="card" style="border:2px solid var(--blue)">
+    <div style="font-size:11px;color:#94a3b8">次の架電先 (${S.ci+1}/${S.rows.length})</div>
+    <div style="font-size:17px;font-weight:800;margin-top:2px">${gf(cur,"co")||"行"+(S.ci+1)}</div>
+    <div style="display:flex;gap:10px;margin-top:4px;font-size:13px;color:var(--sub)">
+    ${gf(cur,"pe")?`<span>👤${gf(cur,"pe")}</span>`:""}${gf(cur,"ph")?`<span style="color:var(--blue)">📞${gf(cur,"ph")}</span>`:""}</div>
+    <button class="btn btn-green" style="margin-top:8px" onclick="startCall()">📞 この施設に架電開始</button>
+    <div style="display:flex;gap:6px;margin-top:6px">
+    <button class="sm-btn" style="opacity:${S.ci>0?1:.3}" onclick="if(${S.ci}>0){S.ci--;render()}">← 前</button>
+    <button class="sm-btn" style="opacity:${S.ci<S.rows.length-1?1:.3}" onclick="if(${S.ci}<${S.rows.length-1}){S.ci++;render()}">次 →</button>
+    <button class="sm-btn" onclick="skipToUncalled()">⏭ 未架電</button>
+    </div></div>`;
+  }
+
+  // Menu
+  const unc=S.rows.filter((_,i)=>!called(i)).length;
+  html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+  <button class="menu-btn" onclick="openPaste()">📋 リスト読込<br><span style="font-size:10px;color:#94a3b8">${S.rows.length}件</span></button>
+  <button class="menu-btn" onclick="S.view='list';render()">📑 リスト一覧<br><span style="font-size:10px;color:#94a3b8">未${unc}</span></button>
+  <button class="menu-btn" onclick="S.view='appolist';render()">🎯 アポ履歴<br><span style="font-size:10px;color:#94a3b8">${S.appoList.length}件</span></button>
+  <button class="menu-btn" onclick="S.view='settings';render()">⚙ 設定<br><span style="font-size:10px;color:#94a3b8">GAS連携</span></button>
+  </div>`;
+}
+
+// LIST
+else if(S.view==="list"){
+  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button class="back-btn" onclick="S.view='home';render()">← 戻る</button><span style="font-size:15px;font-weight:800">リスト (${S.rows.length})</span></div>`;
+  S.rows.forEach((row,i)=>{
+    const dn=called(i);const ri=dn?RES_LIST.find(r=>r.id===tc.find(c=>c.pi===i)?.r):null;
+    html+=`<div onclick="S.ci=${i};S.view='home';render()" style="padding:10px 12px;border-bottom:1px solid var(--light);cursor:pointer;background:${i===S.ci?"#eff6ff":dn?"#f8fafc":"#fff"};border-radius:8px;margin-bottom:2px">
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#94a3b8;width:22px">${i+1}</span><span style="flex:1;font-size:14px;font-weight:700">${gf(row,"co")||"行"+(i+1)}</span>
+    ${dn&&ri?`<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${ri.c}15;color:${ri.c};font-weight:700">${ri.i}${ri.l}</span>`:`<span style="font-size:9px;padding:2px 4px;border-radius:4px;background:var(--light);color:#94a3b8">未</span>`}</div>
+    ${gf(row,"ph")?`<div style="font-size:12px;color:var(--blue);margin-top:2px;margin-left:28px">📞${gf(row,"ph")}</div>`:""}
+    </div>`;
+  });
+}
+
+// CALL
+else if(S.view==="call"){
+  const ccp=ALL_CP[S.cardI];
+  if(ccp){
+    const cp2=comp();
+    const spArr=STEPS.map(st=>({...st,p:Math.round(st.cps.filter(c=>S.ck[c.id]).length/st.cps.length*100)}));
+    html+=`<div style="padding:6px 12px;background:var(--card);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cur?gf(cur,"co"):"—"}</span><span class="mono" style="font-size:14px;font-weight:800;color:${cp2>=80?"#10b981":cp2>=50?"#f59e0b":"#94a3b8"}">読了${cp2}%</span></div>`;
+    html+=`<div style="display:flex;padding:3px 12px;gap:3px;background:var(--light)">${spArr.map(st=>`<div style="flex:1"><div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:100%;width:${st.p}%;background:${st.c};border-radius:3px;transition:width .3s"></div></div><div style="font-size:8px;text-align:center;color:${st.p===100?st.c:"#94a3b8"};margin-top:1px">S${st.id}</div></div>`).join("")}</div>`;
+
+    html+=`<div style="flex:1;display:flex;flex-direction:column;padding:6px 12px;overflow:auto">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:16px">${ccp.sIc}</span><span style="font-size:12px;font-weight:800;color:${ccp.sC}">Step${ccp.sId} ${ccp.sT}</span><span class="mono" style="font-size:11px;color:#94a3b8;margin-left:auto">${S.cardI+1}/${ALL_CP.length}</span></div>
+    <div style="font-size:14px;font-weight:800;margin-bottom:6px">${ccp.l}${ccp.r?`<span style="font-size:9px;padding:2px 5px;border-radius:4px;background:#fef2f2;color:#ef4444;margin-left:6px">必須</span>`:""}</div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;background:${S.ck[ccp.id]?"#f0fdf4":"var(--card)"};border:2px solid ${S.ck[ccp.id]?ccp.sC:"var(--border)"};border-radius:16px;padding:16px 14px;min-height:90px">
+    <div style="font-size:19px;font-weight:500;line-height:2;text-align:center;white-space:pre-line">${ccp.s}</div>
+    ${S.ck[ccp.id]?`<div style="text-align:center;margin-top:6px;font-size:24px">✅</div>`:""}
+    </div>
+    <div style="display:flex;gap:6px;padding:6px 8px;background:#fffbeb;border-radius:8px;margin-top:6px"><span>💡</span><span style="font-size:12px;color:#92400e">${ccp.tip}</span></div>
+    </div>`;
+
+    html+=`<div style="padding:6px 12px;background:var(--card);border-top:1px solid var(--border)">
+    <button class="btn" style="background:${S.ck[ccp.id]?"#d1d5db":ccp.sC};margin-bottom:6px" onclick="doCheck()">${S.ck[ccp.id]?"✅ 読了済み":"☐ 読了チェック"}</button>
+    <div style="display:flex;gap:4px">
+    <button class="nav-btn" style="opacity:${S.cardI>0?1:.3}" onclick="if(${S.cardI}>0){S.cardI--;render()}">← 前</button>
+    <button class="nav-btn" style="opacity:${S.cardI<ALL_CP.length-1?1:.3}" onclick="if(${S.cardI}<${ALL_CP.length-1}){S.cardI++;render()}">次 →</button>
+    <button class="nav-btn" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;font-weight:700" onclick="stopTimer();S.view='result';render()">⏹ 終了</button>
+    </div></div>`;
+  }
+}
+
+// RESULT
+else if(S.view==="result"){
+  const cp2=comp();
+  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button class="back-btn" onclick="S.view='call';render()">← 戻る</button><span style="font-size:15px;font-weight:800">架電結果</span></div>`;
+  html+=`<div style="display:flex;gap:8px;font-size:12px;color:var(--sub);margin-bottom:8px"><span>🏢${cur?gf(cur,"co"):"—"}</span><span>⏱${fmtTimer()}</span><span style="font-weight:700;color:${cp2>=80?"#10b981":"#f59e0b"}">読了${cp2}%</span></div>`;
+  html+=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px">${RES_LIST.map(r=>`<button onclick="S.res='${r.id}';render()" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 2px;border:2px solid ${S.res===r.id?r.c:"var(--border)"};border-radius:10px;background:${S.res===r.id?r.c+"10":"var(--card)"};min-height:52px"><span style="font-size:20px">${r.i}</span><span style="font-size:10px;font-weight:700;color:${S.res===r.id?r.c:"#94a3b8"}">${r.l}</span></button>`).join("")}</div>`;
+  html+=`<textarea class="ta" rows="2" placeholder="📝 メモ" oninput="S.callNotes=this.value">${S.callNotes}</textarea>`;
+  html+=`<button class="btn ${S.res==="appo"?"btn-navy":"btn-green"}" style="margin-top:8px;opacity:${S.res?1:.4}" onclick="saveResult()" ${S.res?"":"disabled"}>${S.res==="appo"?"🎯 アポ詳細入力へ →":"✅ 保存 → 次へ"}</button>`;
+}
+
+// APPO FORM
+else if(S.view==="appo_form"){
+  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button class="back-btn" onclick="advanceNext();S.view='home';flash('スキップ');render()">← スキップ</button><span style="font-size:15px;font-weight:800">🎯 アポ詳細</span></div>`;
+  html+=`<div style="font-size:11px;color:var(--sub);margin-bottom:8px">入力後「Gmailで送信」→ 楠さんに自動送信</div>`;
+  const fields=[["project","案件名","例: 特定技能 介護人材","text"],["company","会社名（施設名）","","text"],["person","担当者名","","text"]];
+  fields.forEach(([k,l,ph,ty])=>{html+=`<div style="margin-bottom:6px"><label class="label">${l}</label><input class="input" type="${ty}" value="${S.af[k]}" oninput="S.af.${k}=this.value" placeholder="${ph}"></div>`});
+  html+=`<div style="margin-bottom:6px"><label class="label">性別</label><div style="display:flex;gap:6px">${["男","女"].map(g=>`<button style="flex:1;padding:8px;border:2px solid ${S.af.gender===g?"var(--blue)":"var(--border)"};border-radius:8px;background:${S.af.gender===g?"#eff6ff":"var(--card)"};color:${S.af.gender===g?"var(--blue)":"var(--sub)"};font-size:13px;font-weight:700" onclick="S.af.gender='${g}';render()">${g}</button>`).join("")}</div></div>`;
+  [["phone","電話番号","","tel"],["role","役職","例: 施設長","text"],["address","住所","","text"]].forEach(([k,l,ph,ty])=>{html+=`<div style="margin-bottom:6px"><label class="label">${l}</label><input class="input" type="${ty}" value="${S.af[k]}" oninput="S.af.${k}=this.value" placeholder="${ph}"></div>`});
+  html+=`<div style="margin-bottom:6px"><label class="label">アポイント日時</label><input class="input" type="datetime-local" value="${S.af.datetime}" oninput="S.af.datetime=this.value"></div>`;
+  html+=`<div style="margin-bottom:6px"><label class="label">メールアドレス</label><input class="input" type="email" value="${S.af.email}" oninput="S.af.email=this.value"></div>`;
+  html+=`<div style="margin-bottom:10px"><label class="label">人柄（重要）</label><textarea class="ta" rows="2" placeholder="穏やか、数字に敏感 等" oninput="S.af.personality=this.value">${S.af.personality}</textarea></div>`;
+  html+=`<button class="btn btn-navy" onclick="sendAppo()">📧 Gmailで楠さんに送信 → 次の架電へ</button>`;
+}
+
+// APPO LIST
+else if(S.view==="appolist"){
+  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button class="back-btn" onclick="S.view='home';render()">← 戻る</button><span style="font-size:15px;font-weight:800">🎯 アポ一覧 (${S.appoList.length})</span></div>`;
+  if(!S.appoList.length)html+=`<div style="text-align:center;padding:40px;color:#94a3b8">アポ履歴なし</div>`;
+  else S.appoList.forEach(a=>{
+    html+=`<div class="card" style="margin-bottom:6px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:14px;font-weight:800;color:#1a237e">${a.company}</span><span style="font-size:10px;color:#94a3b8">${a.date}</span></div>
+    <div style="font-size:12px;color:#475569;line-height:1.7">
+    ${a.project?`<div>📋 ${a.project}</div>`:""}
+    <div>👤 ${a.person}（${a.gender}）${a.role?" / "+a.role:""}</div>
+    ${a.phone?`<div onclick="dial('${a.phone}')" style="color:var(--blue);cursor:pointer;font-weight:700">📞 ${a.phone}（タップで発信）</div>`:""}
+    ${a.address?`<div>📍 ${a.address}</div>`:""}
+    ${a.datetime?`<div>📅 ${a.datetime}</div>`:""}
+    ${a.email?`<div>✉ ${a.email}</div>`:""}
+    ${a.personality?`<div>💬 ${a.personality}</div>`:""}
+    ${a.reporter?`<div style="font-size:10px;color:#94a3b8;margin-top:2px">報告者: ${a.reporter}</div>`:""}
+    </div></div>`;
+  });
+}
+
+// SETTINGS
+else if(S.view==="settings"){
+  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button class="back-btn" onclick="S.view='home';render()">← 戻る</button><span style="font-size:15px;font-weight:800">⚙ 設定</span></div>`;
+  html+=`<div class="card"><div style="font-size:13px;font-weight:800;color:#1a237e;margin-bottom:6px">Google Sheets 連携</div>
+  <div style="font-size:11px;color:var(--sub);line-height:1.6;margin-bottom:8px">勤怠データをスプレッドシートに自動記録</div>
+  <label class="label">GAS Web App URL</label>
+  <input class="input" value="${S.gasUrl}" oninput="S.gasUrl=this.value;LS('k9-gas',this.value)" placeholder="https://script.google.com/macros/s/.../exec">
+  ${S.gasUrl?`<div style="margin-top:6px;padding:6px;background:#e0f2f1;border-radius:6px;font-size:11px;color:#00695c">✓ 連携ON</div>`:""}</div>`;
+
+  html+=`<div class="card" style="margin-top:8px"><div style="font-size:13px;font-weight:800;color:#1a237e;margin-bottom:6px">GAS セットアップ</div>
+  <div style="font-size:10px;color:#475569;line-height:2">1. スプレッドシート →「拡張機能」→「Apps Script」<br>
+  2. コード.gs に下記を貼付:<br>
+  <code style="display:block;background:var(--light);padding:8px;border-radius:6px;margin:4px 0;font-size:9px;line-height:1.6;white-space:pre-wrap;word-break:break-all">function doPost(e) {
+  var d = JSON.parse(e.postData.contents);
+  var ss = SpreadsheetApp.openById(
+    "1-LbnolRrWg6VyC-ypdYnFh7_vluuwIcNCnfPfb1vji8");
+  var sh = ss.getSheetByName("勤怠")
+    || ss.insertSheet("勤怠");
+  if (sh.getLastRow() === 0)
+    sh.appendRow(["名前","日付","出勤",
+      "退勤","休憩開始","休憩終了"]);
+  sh.appendRow([d.name, d.date,
+    d.clockIn, d.clockOut,
+    d.breakStart, d.breakEnd]);
+  return ContentService
+    .createTextOutput("ok");
+}</code>
+  3. デプロイ → 新しいデプロイ → ウェブアプリ → アクセス「全員」<br>
+  4. URLをコピーして上の欄に貼付</div></div>`;
+}
+
+html+=`</main>`;
+app.innerHTML=html;
+
+// Bind paste textarea
+const pa=document.getElementById("pasteArea");
+if(pa)pa.addEventListener("input",e=>{S.pasteVal=e.target.value});
+}
+
+// Global functions
+window.pinAdd=function(n){if(S.pin.length>=3)return;S.pin+=String(n);S.pinErr="";render();tryLogin(S.pin)};
+window.pinDel=function(){S.pin=S.pin.slice(0,-1);S.pinErr="";render()};
+window.logout=function(){S.user=null;S.view="login";S.pin="";S.pinErr="";render()};
+window.openPaste=function(){S.showPaste=true;S.pasteErr="";S.pasteVal="";render()};
+window.closePaste=function(){S.showPaste=false;render()};
+window.skipToUncalled=function(){const n=S.rows.findIndex((_,i)=>i>S.ci&&!called(i));if(n>=0){S.ci=n;render()}};
+window.punch=punch;window.startCall=startCall;window.doCheck=doCheck;window.saveResult=saveResult;window.sendAppo=sendAppo;window.doImport=doImport;window.dial=dial;window.advanceNext=advanceNext;window.flash=flash;window.render=render;
+window.S=S;window.LS=LS;
+
+// Clock update
+setInterval(()=>{const el=document.getElementById("clock");if(el)el.textContent=fmtTime().slice(0,5)},10000);
+
+// Initial render
+render();
+</script>
+</body>
+</html>
