@@ -9,10 +9,12 @@
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,'Hiragino Kaku Gothic ProN',sans-serif;background:#f8fafc;color:#1e293b;max-width:480px;margin:0 auto;min-height:100vh;font-size:14px}
 button{font-family:inherit;cursor:pointer}input,textarea,select{font-family:inherit;font-size:14px}
-@keyframes scroll{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
+@keyframes scroll{0%{transform:translateX(100%)}100%{transform:translateX(-200%)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .ticker{background:linear-gradient(90deg,#fef3c7,#fde68a);padding:8px 0;overflow:hidden;white-space:nowrap;border-bottom:1px solid #f59e0b}
-.ticker span{display:inline-block;animation:scroll 20s linear infinite;font-size:13px;font-weight:700;color:#92400e}
+.ticker span{display:inline-block;padding-left:100%;animation:scroll 25s linear infinite;font-size:13px;font-weight:700;color:#92400e}
+.loading{text-align:center;padding:40px;color:#94a3b8}
+.loading::after{content:"";display:block;width:24px;height:24px;border:3px solid #e2e8f0;border-top:3px solid #3b82f6;border-radius:50%;margin:12px auto;animation:pulse 1s linear infinite}
 </style>
 </head>
 <body>
@@ -21,34 +23,54 @@ button{font-family:inherit;cursor:pointer}input,textarea,select{font-family:inhe
 (function(){
 "use strict";
 
-var STAFF=[{id:"s091",name:"柏木幸代",pin:"091"},{id:"s092",name:"園田絵里",pin:"092"},{id:"s093",name:"堀内真紀子",pin:"093"}];
+/*
+  v15 — Googleスプレッドシート = データベース
+  
+  仕組み:
+  1. 管理者がスプレッドシートのタブ（柏木/園田/堀内）に架電リストを入力
+  2. GAS(doGet)がタブのデータをJSON返却
+  3. アポインターがログイン → 自動でスプレッドシートから最新リスト取得
+  4. 勤怠もGAS経由でスプレッドシートに書き込み
+  
+  必要なスプレッドシートのタブ:
+  - 柏木（架電リスト）
+  - 園田（架電リスト）
+  - 堀内（架電リスト）
+  - 勤怠（出退勤記録）
+*/
+
+var STAFF=[
+  {id:"s091",name:"柏木幸代",pin:"091",sheet:"柏木"},
+  {id:"s092",name:"園田絵里",pin:"092",sheet:"園田"},
+  {id:"s093",name:"堀内真紀子",pin:"093",sheet:"堀内"}
+];
 var ADMIN_PIN="9999";
+var SHEET_ID="1-LbnolRrWg6VyC-ypdYnFh7_vluuwIcNCnfPfb1vji8";
 
 var STEPS=[
 {id:1,t:"不信感払拭",c:"#3b82f6",ic:"🤝",items:[
-{id:"1a",l:"第一声",tx:"お忙しいところ恐れ入ります。○○の△△と申します。",m:1,h:"明るくゆっくり"},
-{id:"1b",l:"用件提示",tx:"人材確保について1分だけお時間よろしいでしょうか？",m:1,h:"「1分だけ」"},
-{id:"1c",l:"第三者話法",tx:"先日○○市の施設様にもお話しさせていただき大変喜ばれました。",m:1,h:"近隣事例"},
-{id:"1d",l:"許可取り",tx:"少しだけお話を聞いていただけますか？",m:0,h:"Yesを取る"}]},
+{id:"1a",l:"第一声",tx:"お忙しいところ恐れ入ります。\n○○の△△と申します。",m:1,h:"明るくゆっくり"},
+{id:"1b",l:"用件提示",tx:"人材確保について\n1分だけお時間よろしいでしょうか？",m:1,h:"「1分だけ」"},
+{id:"1c",l:"第三者話法",tx:"先日○○市の施設様にも\nお話しさせていただき\n大変喜ばれました。",m:1,h:"近隣事例"},
+{id:"1d",l:"許可取り",tx:"少しだけお話を\n聞いていただけますか？",m:0,h:"Yesを取る"}]},
 {id:2,t:"関心喚起",c:"#10b981",ic:"💡",items:[
-{id:"2a",l:"トレンド",tx:"特定技能の外国人介護士が注目されているのはご存知ですか？",m:1,h:"質問で巻き込む"},
-{id:"2b",l:"数字",tx:"導入施設様の92%が『もっと早く採用すれば』とおっしゃっています。",m:1,h:"数字は武器"},
-{id:"2c",l:"匂わせ",tx:"完全成功報酬でリスクなく始められる方法があるんです。",m:1,h:"好奇心刺激"},
-{id:"2d",l:"橋渡し",tx:"ちなみに施設長様のところは人材確保いかがですか？",m:1,h:"Step3へ"}]},
+{id:"2a",l:"トレンド",tx:"特定技能の外国人介護士が\n注目されているのは\nご存知ですか？",m:1,h:"質問で巻き込む"},
+{id:"2b",l:"数字",tx:"導入施設様の92%が\n『もっと早く採用すれば』\nとおっしゃっています。",m:1,h:"数字は武器"},
+{id:"2c",l:"匂わせ",tx:"完全成功報酬で\nリスクなく始められる\n方法があるんです。",m:1,h:"好奇心刺激"},
+{id:"2d",l:"橋渡し",tx:"ちなみに施設長様のところは\n人材確保いかがですか？",m:1,h:"Step3へ"}]},
 {id:3,t:"問題・願望",c:"#f59e0b",ic:"👂",items:[
-{id:"3a",l:"現状",tx:"介護スタッフは何名体制ですか？",m:1,h:"数字で把握"},
-{id:"3b",l:"課題",tx:"人材確保で一番お困りのことは？",m:1,h:"最重要"},
-{id:"3c",l:"影響",tx:"運営面でどんな影響が？",m:1,h:"痛み認識"},
-{id:"3d",l:"理想",tx:"どんな状態なら安心ですか？",m:1,h:"ゴール言語化"},
-{id:"3e",l:"確認",tx:"○○が課題で△△が理想ですね？",m:1,h:"オウム返し"}]},
+{id:"3a",l:"現状",tx:"介護スタッフは\n何名体制ですか？",m:1,h:"数字で把握"},
+{id:"3b",l:"課題",tx:"人材確保で一番\nお困りのことは？",m:1,h:"最重要"},
+{id:"3c",l:"影響",tx:"運営面で\nどんな影響が？",m:1,h:"痛み認識"},
+{id:"3d",l:"理想",tx:"どんな状態なら\n安心ですか？",m:1,h:"ゴール言語化"},
+{id:"3e",l:"確認",tx:"○○が課題で\n△△が理想ですね？",m:1,h:"オウム返し"}]},
 {id:4,t:"解決→アポ",c:"#ef4444",ic:"🎯",items:[
-{id:"4a",l:"解決策",tx:"その課題、川嶋メソッドで解決できます。",m:1,h:"課題をそのまま"},
-{id:"4b",l:"事例",tx:"同じ悩みの施設様が3ヶ月で人材確保に成功しました。",m:1,h:"同規模事例"},
-{id:"4c",l:"リスク0",tx:"完全成功報酬で費用は一切かかりません。",m:1,h:"断る理由を潰す"},
-{id:"4d",l:"クロージング",tx:"来週の前半と後半どちらがご都合よろしいですか？",m:1,h:"二者択一"},
-{id:"4e",l:"確定",tx:"では○月○日○時にお伺いします。ありがとうございました。",m:1,h:"復唱"}]}
+{id:"4a",l:"解決策",tx:"その課題、川嶋メソッドで\n解決できます。",m:1,h:"課題をそのまま"},
+{id:"4b",l:"事例",tx:"同じ悩みの施設様が\n3ヶ月で人材確保に\n成功しました。",m:1,h:"同規模事例"},
+{id:"4c",l:"リスク0",tx:"完全成功報酬で\n費用は一切かかりません。",m:1,h:"断る理由を潰す"},
+{id:"4d",l:"クロージング",tx:"来週の前半と後半\nどちらがご都合\nよろしいですか？",m:1,h:"二者択一"},
+{id:"4e",l:"確定",tx:"では○月○日○時に\nお伺いします。\nありがとうございました。",m:1,h:"復唱"}]}
 ];
-
 var ALL=[];STEPS.forEach(function(s){s.items.forEach(function(i){ALL.push({id:i.id,l:i.l,tx:i.tx,m:i.m,h:i.h,sId:s.id,sC:s.c,sT:s.t,sIc:s.ic})})});
 var REQS=ALL.filter(function(x){return x.m});
 var RTYPES=[{id:"appo",l:"アポ獲得",i:"🎯",c:"#10b981"},{id:"cb",l:"再架電",i:"📞",c:"#f59e0b"},{id:"info",l:"資料送付",i:"📨",c:"#3b82f6"},{id:"absent",l:"不在",i:"🚫",c:"#6b7280"},{id:"refused",l:"断り",i:"✋",c:"#ef4444"},{id:"wrong",l:"不通",i:"❌",c:"#9ca3af"},{id:"followup",l:"フォロー",i:"📋",c:"#8b5cf6"},{id:"other",l:"その他",i:"📝",c:"#64748b"}];
@@ -60,8 +82,81 @@ function timeNow(){var d=new Date();return pad(d.getHours())+":"+pad(d.getMinute
 function dateNow(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function dateJP(){var d=new Date();return d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日"}
 function dialPhone(n){if(!n)return;var c=n.replace(/[^\d+\-]/g,"");if(!c)return;var a=document.createElement("a");a.href="tel:"+c;a.style.display="none";document.body.appendChild(a);a.click();setTimeout(function(){try{document.body.removeChild(a)}catch(e){}},300)}
-function postGAS(url,data){if(!url)return;try{fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(data),mode:"no-cors"})}catch(e){}}
 
+/* ===== GAS API ===== */
+function gasGet(url,pin,callback){
+  if(!url){callback(null);return}
+  fetch(url+"?pin="+encodeURIComponent(pin)+"&t="+Date.now(),{redirect:"follow"})
+    .then(function(r){return r.text()})
+    .then(function(t){try{callback(JSON.parse(t))}catch(e){callback(null)}})
+    .catch(function(){callback(null)})
+}
+function gasPost(url,data){
+  if(!url)return;
+  try{fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(data),mode:"no-cors"})}catch(e){}
+}
+
+/* ===== STATE ===== */
+var S={
+  screen:"login",role:null,pin:"",pinErr:"",toast:"",toastTmr:null,loading:false,
+  prospects:[],colMap:null,ci:0,skipped:{},
+  callHist:[],appoHist:[],att:{},
+  ck:{},cardI:0,tsec:0,tOn:false,tRef:null,
+  selRes:null,memo:"",
+  af:{project:"",company:"",person:"",gender:"男",phone:"",role:"",address:"",datetime:"",email:"",personality:""},
+  showImp:false,impErr:"",
+  adminTarget:null,gasUrl:""
+};
+S.gasUrl=LD("app-gas")||"";
+
+function loadUser(uid){
+  S.prospects=LD("app-list-"+uid)||[];S.colMap=LD("app-cm-"+uid)||null;S.ci=0;S.skipped=LD("app-skip-"+uid)||{};
+  S.callHist=LD("app-calls-"+uid)||[];S.appoHist=LD("app-appos-"+uid)||[];S.att=LD("app-att-"+uid)||{};
+}
+function gf(row,f){if(!row||!S.colMap||S.colMap[f]<0)return"";return String(row[S.colMap[f]]||"").trim()}
+function today(){return dateNow()}
+function todayCalls(){var uid=S.role&&S.role!=="admin"?S.role.id:"";return S.callHist.filter(function(c){return c.d===today()&&c.uid===uid})}
+function isCalled(i){return todayCalls().some(function(c){return c.pi===i})}
+function isSkipped(i){return S.skipped[i]===true}
+function shouldShow(i){return!isCalled(i)&&!isSkipped(i)}
+function comp(){return REQS.length>0?Math.round(REQS.filter(function(x){return S.ck[x.id]}).length/REQS.length*100):0}
+function todayAtt(){return S.att[today()]||{}}
+function timerFmt(){return pad(Math.floor(S.tsec/60))+":"+pad(S.tsec%60)}
+function flash(m){S.toast=m;R();clearTimeout(S.toastTmr);S.toastTmr=setTimeout(function(){S.toast="";R()},2500)}
+function goNext(){for(var i=S.ci+1;i<S.prospects.length;i++)if(shouldShow(i)){S.ci=i;return};for(var i=0;i<S.ci;i++)if(shouldShow(i)){S.ci=i;return}}
+
+function getUpcoming(){
+  var now=new Date();var result=[];
+  S.appoHist.forEach(function(a){
+    if(!a.datetime)return;try{var dt=new Date(a.datetime)}catch(e){return}
+    if(isNaN(dt.getTime()))return;
+    var diff=(dt.getTime()-now.getTime())/(1000*60*60*24);
+    if(diff>=0&&diff<=3)result.push({company:a.company||"",person:a.person||"",phone:a.phone||"",address:a.address||"",datetime:a.datetime,daysLeft:Math.ceil(diff)});
+  });return result;
+}
+
+/* ===== Fetch list from Google Sheets via GAS ===== */
+function fetchListFromSheets(staffObj){
+  if(!S.gasUrl){return}
+  S.loading=true;R();
+  gasGet(S.gasUrl,staffObj.pin,function(data){
+    S.loading=false;
+    if(data&&data.rows&&data.rows.length>0){
+      S.prospects=data.rows;
+      S.colMap=data.cm||{co:0,ph:1,pe:2,ad:3};
+      S.ci=0;S.skipped={};
+      SV("app-list-"+staffObj.id,data.rows);
+      SV("app-cm-"+staffObj.id,data.cm||{co:0,ph:1,pe:2,ad:3});
+      SV("app-skip-"+staffObj.id,{});
+      flash("✅ スプレッドシートから"+data.rows.length+"件取得");
+    }else if(data&&data.error){
+      flash("⚠ "+data.error);
+    }
+    R();
+  });
+}
+
+/* ===== CSV Parser (for manual paste fallback) ===== */
 function parseCSV(raw){
   if(!raw||!raw.trim())return{err:"テキストが空です"};
   var text=raw.replace(/^\uFEFF/,"").replace(/\u200B/g,"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
@@ -70,125 +165,49 @@ function parseCSV(raw){
   var sep="\t";if(lines[0].indexOf("\t")<0){sep=lines[0].indexOf(",")>=0?",":"SP"}
   function split(l){if(sep==="\t")return l.split("\t").map(function(c){return c.trim()});if(sep===","){var r=[],cur="",q=false;for(var i=0;i<l.length;i++){var ch=l[i];if(ch==='"')q=!q;else if(ch===","&&!q){r.push(cur.trim());cur=""}else cur+=ch}r.push(cur.trim());return r}return l.split(/\s{2,}/).map(function(c){return c.trim()})}
   var all=lines.map(split);
-  var hdrKeys=["施設","会社","法人","事業所","名称","名前","電話","tel","phone","番号","担当","氏名","住所","所在地","company","name","連絡","管理者","施設長","クライアント","顧客","責任者"];
-  var firstLower=all[0].join("").toLowerCase().replace(/[\s　]/g,"");
-  var isHdr=false;for(var k=0;k<hdrKeys.length;k++){if(firstLower.indexOf(hdrKeys[k])>=0){isHdr=true;break}}
-  var hasPhoneFirst=false;for(var j=0;j<all[0].length;j++){if(/^\d{2,4}[\-\d]{4,}/.test(all[0][j])){hasPhoneFirst=true;break}}
-  if(hasPhoneFirst)isHdr=false;
+  var hdrKeys=["施設","会社","法人","事業所","名称","名前","電話","tel","phone","番号","担当","氏名","住所","company","name","連絡","管理者","施設長","クライアント","顧客"];
+  var fl=all[0].join("").toLowerCase().replace(/[\s　]/g,"");var isH=false;for(var k=0;k<hdrKeys.length;k++){if(fl.indexOf(hdrKeys[k])>=0){isH=true;break}}
+  var hasP=false;for(var j=0;j<all[0].length;j++){if(/^\d{2,4}[\-\d]{4,}/.test(all[0][j])){hasP=true;break}}if(hasP)isH=false;
   var data,cm;
-  if(isHdr&&all.length>=2){data=all.slice(1);var hl=all[0].map(function(h){return(h||"").toLowerCase().replace(/[\s　]/g,"")});function fc(ps){for(var i=0;i<hl.length;i++)for(var j=0;j<ps.length;j++)if(hl[i].indexOf(ps[j])>=0)return i;return-1}cm={co:fc(["施設","会社","法人","事業所","名称","名前","company","name","クライアント","顧客"]),ph:fc(["電話","tel","phone","番号","連絡"]),pe:fc(["担当","氏名","施設長","管理者","責任者"]),ad:fc(["住所","所在地","address","エリア"])}}
-  else{data=all;var nc=all[0].length;var phCol=-1;for(var c=0;c<nc;c++){var hits=0;for(var r=0;r<Math.min(data.length,5);r++){if(data[r][c]&&/[\d\-]{6,}/.test(data[r][c]))hits++}if(hits>=Math.min(data.length,2)){phCol=c;break}}
-  if(nc<=1)cm={co:0,ph:-1,pe:-1,ad:-1};else if(nc===2)cm={co:phCol===0?1:0,ph:phCol>=0?phCol:1,pe:-1,ad:-1};else if(nc===3){var nC=phCol===0?1:0;var pC=-1;for(var x=0;x<3;x++)if(x!==nC&&x!==phCol){pC=x;break};cm={co:nC,ph:phCol>=0?phCol:1,pe:pC>=0?pC:2,ad:-1}}else cm={co:0,ph:phCol>=0?phCol:1,pe:2,ad:3}}
+  if(isH&&all.length>=2){data=all.slice(1);var hl=all[0].map(function(h){return(h||"").toLowerCase().replace(/[\s　]/g,"")});function fc(ps){for(var i=0;i<hl.length;i++)for(var j=0;j<ps.length;j++)if(hl[i].indexOf(ps[j])>=0)return i;return-1}cm={co:fc(["施設","会社","法人","事業所","名称","名前","company","name","クライアント","顧客"]),ph:fc(["電話","tel","phone","番号","連絡"]),pe:fc(["担当","氏名","施設長","管理者"]),ad:fc(["住所","所在地","address"])}}
+  else{data=all;var nc=all[0].length;var phC=-1;for(var c=0;c<nc;c++){var h=0;for(var r=0;r<Math.min(data.length,5);r++){if(data[r][c]&&/[\d\-]{6,}/.test(data[r][c]))h++}if(h>=Math.min(data.length,2)){phC=c;break}}
+  if(nc<=1)cm={co:0,ph:-1,pe:-1,ad:-1};else if(nc===2)cm={co:phC===0?1:0,ph:phC>=0?phC:1,pe:-1,ad:-1};else if(nc===3)cm={co:phC===0?1:0,ph:phC>=0?phC:1,pe:2,ad:-1};else cm={co:0,ph:phC>=0?phC:1,pe:2,ad:3}}
   data=data.filter(function(r){return r.some(function(c){return c&&c.trim()})});
-  if(!data.length)return{err:"データ行が0件です"};
-  return{err:null,rows:data,cm:cm,count:data.length}
+  if(!data.length)return{err:"データ行0件"};return{err:null,rows:data,cm:cm,count:data.length}
 }
 
-/* Upcoming appointment checker */
-function getUpcomingAppos(appoList){
-  var now=new Date();var result=[];
-  if(!appoList)return result;
-  appoList.forEach(function(a){
-    if(!a.datetime)return;
-    var dt;
-    try{dt=new Date(a.datetime)}catch(e){return}
-    if(isNaN(dt.getTime()))return;
-    var diff=(dt.getTime()-now.getTime())/(1000*60*60*24);
-    if(diff>=0&&diff<=3){
-      result.push({company:a.company||"",person:a.person||"",phone:a.phone||"",email:a.email||"",address:a.address||"",datetime:a.datetime,daysLeft:Math.ceil(diff)});
-    }
-  });
-  return result;
-}
-
-/* Share code: encode list data as base64 for LINE sharing */
-function encodeShareCode(rows,cm){
-  try{var obj={r:rows,c:cm};var json=JSON.stringify(obj);return btoa(unescape(encodeURIComponent(json)))}catch(e){return null}
-}
-function decodeShareCode(code){
-  try{var json=decodeURIComponent(escape(atob(code.trim())));var obj=JSON.parse(json);if(obj.r&&obj.c)return obj;return null}catch(e){return null}
-}
-
-/* ===== STATE ===== */
-var S={
-  screen:"login",role:null,pin:"",pinErr:"",toast:"",toastTmr:null,
-  prospects:[],colMap:null,ci:0,
-  callHist:[],appoHist:[],att:{},
-  ck:{},cardI:0,tsec:0,tOn:false,tRef:null,
-  selRes:null,memo:"",
-  af:{project:"",company:"",person:"",gender:"男",phone:"",role:"",address:"",datetime:"",email:"",personality:""},
-  showImp:false,impErr:"",impPrev:"",
-  adminTarget:null,gasUrl:"",
-  shareCode:"",showReceive:false,recvErr:""
-};
-S.gasUrl=LD("app-gas")||"";
-
-function loadUser(uid){
-  S.prospects=LD("app-list-"+uid)||[];S.colMap=LD("app-cm-"+uid)||null;S.ci=0;
-  S.callHist=LD("app-calls-"+uid)||[];S.appoHist=LD("app-appos-"+uid)||[];S.att=LD("app-att-"+uid)||{};
-}
-function gf(row,f){if(!row||!S.colMap||S.colMap[f]<0)return"";return String(row[S.colMap[f]]||"").trim()}
-function today(){return dateNow()}
-function todayCalls(){var uid=S.role&&S.role!=="admin"?S.role.id:"";return S.callHist.filter(function(c){return c.d===today()&&c.uid===uid})}
-function isCalled(i){return todayCalls().some(function(c){return c.pi===i})}
-function comp(){return REQS.length>0?Math.round(REQS.filter(function(x){return S.ck[x.id]}).length/REQS.length*100):0}
-function todayAtt(){return S.att[today()]||{}}
-function timerFmt(){return pad(Math.floor(S.tsec/60))+":"+pad(S.tsec%60)}
-function flash(m){S.toast=m;R();clearTimeout(S.toastTmr);S.toastTmr=setTimeout(function(){S.toast="";R()},2500)}
-function goNext(){for(var i=S.ci+1;i<S.prospects.length;i++)if(!isCalled(i)){S.ci=i;return};if(S.ci<S.prospects.length-1)S.ci++}
-
-/* ===== LOGIN FIX: 3桁→スタッフチェック（失敗しても消さない）、4桁→管理者チェック ===== */
+/* ===== ACTIONS ===== */
 function tryLogin(){
   var p=S.pin;
-  if(p.length===3){
-    var f=null;for(var i=0;i<STAFF.length;i++)if(STAFF[i].pin===p){f=STAFF[i];break}
-    if(f){S.role=f;S.screen="home";S.pin="";S.pinErr="";loadUser(f.id);R();return}
-    /* 3桁で見つからない→4桁目を待つ（リセットしない！） */
+  if(p.length===3){var f=null;for(var i=0;i<STAFF.length;i++)if(STAFF[i].pin===p){f=STAFF[i];break}
+    if(f){S.role=f;S.screen="home";S.pin="";S.pinErr="";loadUser(f.id);R();fetchListFromSheets(f);return}
   }
   if(p.length===4){
-    if(p===ADMIN_PIN){S.role="admin";S.screen="admin";S.pin="";S.pinErr="";S.adminTarget=STAFF[0]?STAFF[0].id:null;R()}
+    if(p===ADMIN_PIN){S.role="admin";S.screen="admin";S.pin="";S.pinErr="";R()}
     else{S.pinErr="番号が違います";S.pin="";R()}
   }
 }
-
 function doImport(){
   var ta=document.getElementById("impTA");var val=ta?ta.value:"";
   if(!val.trim()){S.impErr="テキストが空です";R();return}
   var r=parseCSV(val);if(r.err){S.impErr=r.err;R();return}
-  var uid;if(S.role==="admin"&&S.adminTarget)uid=S.adminTarget;else if(S.role&&S.role!=="admin")uid=S.role.id;else{S.impErr="ユーザー未選択";R();return}
+  var uid=S.role==="admin"&&S.adminTarget?S.adminTarget:S.role&&S.role!=="admin"?S.role.id:null;
+  if(!uid){S.impErr="ユーザー未選択";R();return}
   SV("app-list-"+uid,r.rows);SV("app-cm-"+uid,r.cm);
-  if(S.role!=="admin"&&S.role.id===uid){S.prospects=r.rows;S.colMap=r.cm;S.ci=0}
-  /* Generate share code */
-  S.shareCode=encodeShareCode(r.rows,r.cm)||"";
+  if(S.role!=="admin"&&S.role.id===uid){S.prospects=r.rows;S.colMap=r.cm;S.ci=0;S.skipped={};SV("app-skip-"+uid,{})}
   S.showImp=false;S.impErr="";
   var sn="";for(var i=0;i<STAFF.length;i++)if(STAFF[i].id===uid)sn=STAFF[i].name;
-  flash("✅ "+sn+"に"+r.count+"件読込完了！")
+  flash("✅ "+sn+"に"+r.count+"件読込")
 }
-function doTestData(){
-  var uid;if(S.role==="admin"&&S.adminTarget)uid=S.adminTarget;else if(S.role&&S.role!=="admin")uid=S.role.id;else return;
-  var d=[["ABC介護","045-111-2222","田中太郎","横浜市"],["DEF施設","045-333-4444","佐藤花子","川崎市"],["GHIデイ","045-555-6666","鈴木一郎","横浜市"],["JKL特養","045-777-8888","高橋美咲","横浜市"],["MNOホーム","045-999-0000","伊藤健太","川崎市"]];
-  var c={co:0,ph:1,pe:2,ad:3};
-  SV("app-list-"+uid,d);SV("app-cm-"+uid,c);
-  if(S.role!=="admin"&&S.role.id===uid){S.prospects=d;S.colMap=c;S.ci=0}
-  S.shareCode=encodeShareCode(d,c)||"";
-  S.showImp=false;
-  var sn="";for(var i=0;i<STAFF.length;i++)if(STAFF[i].id===uid)sn=STAFF[i].name;
-  flash("✅ "+sn+"にテスト5件読込")
+function doSkip(){
+  S.skipped[S.ci]=true;SV("app-skip-"+S.role.id,S.skipped);
+  flash("⏭ スキップ");goNext();R();
 }
-function doReceiveCode(){
-  var ta=document.getElementById("recvTA");var val=ta?ta.value:"";
-  if(!val.trim()){S.recvErr="コードが空です";R();return}
-  var obj=decodeShareCode(val);
-  if(!obj){S.recvErr="無効なコードです。管理者から正しいコードを受け取ってください。";R();return}
-  S.prospects=obj.r;S.colMap=obj.c;S.ci=0;
-  SV("app-list-"+S.role.id,obj.r);SV("app-cm-"+S.role.id,obj.c);
-  S.showReceive=false;S.recvErr="";
-  flash("✅ "+obj.r.length+"件のリストを受信しました！")
-}
+function undoSkips(){S.skipped={};SV("app-skip-"+S.role.id,{});flash("全スキップ解除");R()}
 function doPunch(type){
   var t=timeNow(),d=today();if(!S.att[d])S.att[d]={};S.att[d][type]=t;SV("app-att-"+S.role.id,S.att);
   var lb={ci:"出勤",co:"退勤",bs:"休憩開始",be:"休憩終了"};flash("✅ "+lb[type]+" "+t.slice(0,5));
-  if(S.gasUrl){var a=S.att[d];postGAS(S.gasUrl,{name:S.role.name,pin:S.role.pin,date:dateJP(),clockIn:a.ci||"",clockOut:a.co||"",breakStart:a.bs||"",breakEnd:a.be||""})}
+  if(S.gasUrl){var a=S.att[d];gasPost(S.gasUrl,{type:"attendance",name:S.role.name,pin:S.role.pin,date:dateJP(),clockIn:a.ci||"",clockOut:a.co||"",breakStart:a.bs||"",breakEnd:a.be||""})}
 }
 function startCall(){
   S.ck={};S.cardI=0;S.tsec=0;S.tOn=true;clearInterval(S.tRef);S.tRef=setInterval(function(){S.tsec++;var el=document.getElementById("tmr");if(el)el.textContent=timerFmt()},1000);
@@ -207,8 +226,7 @@ function saveResult(){
 }
 function sendAppo(){
   ["project","company","person","phone","role","address","datetime","email","personality"].forEach(function(f){var el=document.getElementById("af_"+f);if(el)S.af[f]=el.value});
-  var a=S.af;
-  var body="アポイント報告\n\n案件名: "+a.project+"\n会社名: "+a.company+"\n担当者: "+a.person+"（"+a.gender+"）\n電話: "+a.phone+"\n役職: "+a.role+"\n住所: "+a.address+"\nアポ日時: "+a.datetime+"\nメール: "+a.email+"\n人柄: "+a.personality+"\n\n報告者: "+S.role.name;
+  var a=S.af;var body="アポイント報告\n\n案件名: "+a.project+"\n会社名: "+a.company+"\n担当者: "+a.person+"（"+a.gender+"）\n電話: "+a.phone+"\n役職: "+a.role+"\n住所: "+a.address+"\nアポ日時: "+a.datetime+"\nメール: "+a.email+"\n人柄: "+a.personality+"\n\n報告者: "+S.role.name;
   var subj="【アポ報告】"+a.company+" "+a.person+"様 - "+S.role.name;
   S.appoHist.unshift({project:a.project,company:a.company,person:a.person,gender:a.gender,phone:a.phone,role:a.role,address:a.address,datetime:a.datetime,email:a.email,personality:a.personality,id:Date.now(),reporter:S.role.name,date:today()});
   SV("app-appos-"+S.role.id,S.appoHist);
@@ -219,218 +237,196 @@ function sendAppo(){
 /* ===== RENDER ===== */
 function R(){
 try{
-var root=document.getElementById("root");
-var h="";var isAdmin=S.role==="admin";
+var root=document.getElementById("root"),h="",isAdmin=S.role==="admin";
 if(S.toast)h+='<div style="position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:700;z-index:999">'+S.toast+'</div>';
 
-/* ===== LOGIN ===== */
 if(S.screen==="login"){
   h+='<div style="min-height:100vh;background:linear-gradient(135deg,#0d1b2a,#1a237e);display:flex;align-items:center;justify-content:center;padding:20px"><div style="background:#fff;border-radius:18px;padding:28px 24px;max-width:340px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25)">';
   h+='<div style="text-align:center;margin-bottom:18px"><div style="font-size:36px">📞</div><div style="font-size:18px;font-weight:800;color:#1a237e">川嶋メソッド</div><div style="font-size:9px;color:#90a4ae;letter-spacing:2px">テレアポ統合管理</div></div>';
   h+='<div style="text-align:center;font-size:13px;color:#455a64;margin-bottom:12px">従業員番号を入力してください</div>';
   h+='<div style="display:flex;justify-content:center;gap:8px;margin-bottom:12px">';
-  for(var i=0;i<4;i++){var filled=S.pin.length>i;h+='<div style="width:44px;height:52px;border-radius:12px;border:2px solid '+(filled?"#1a237e":"#e0e0e0")+';background:'+(filled?"#e8eaf6":"#fafafa")+';display:flex;align-items:center;justify-content:center;font-size:22px;color:#1a237e">'+(filled?"●":"")+'</div>'}
-  h+='</div><div id="pinPad" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;max-width:200px;margin:0 auto 12px"></div>';
+  for(var i=0;i<4;i++){var f=S.pin.length>i;h+='<div style="width:44px;height:52px;border-radius:12px;border:2px solid '+(f?"#1a237e":"#e0e0e0")+';background:'+(f?"#e8eaf6":"#fafafa")+';display:flex;align-items:center;justify-content:center;font-size:22px;color:#1a237e">'+(f?"●":"")+'</div>'}
+  h+='</div><div id="pp" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;max-width:200px;margin:0 auto 12px"></div>';
   if(S.pinErr)h+='<div style="text-align:center;font-size:12px;color:#e53935;font-weight:700">'+S.pinErr+'</div>';
   h+='</div></div>';
   root.innerHTML=h;
-  var pp=document.getElementById("pinPad");
+  var pp=document.getElementById("pp");
   [1,2,3,4,5,6,7,8,9,null,0,"DEL"].forEach(function(n){
     var b=document.createElement("button");b.style.cssText="height:48px;border-radius:10px;font-size:"+(n==="DEL"?"14":"20")+"px;border:1.5px solid #e0e0e0;background:#fff;color:#1a237e;font-family:inherit";
     if(n===null){b.style.visibility="hidden";b.textContent=" "}
-    else{b.textContent=n==="DEL"?"⌫":n;b.onclick=function(){
-      if(n==="DEL"){S.pin=S.pin.slice(0,-1);S.pinErr="";R();return}
-      if(S.pin.length>=4)return;
-      S.pin+=String(n);S.pinErr="";R();
-      tryLogin();
-    }}pp.appendChild(b);
+    else{b.textContent=n==="DEL"?"⌫":n;b.onclick=function(){if(n==="DEL"){S.pin=S.pin.slice(0,-1);S.pinErr="";R();return}if(S.pin.length>=4)return;S.pin+=String(n);S.pinErr="";R();tryLogin()}}
+    pp.appendChild(b);
   });return;
 }
 
-/* ===== HEADER ===== */
+/* Header */
 h+='<header style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:50"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">📞</span><div><div style="font-size:12px;font-weight:800">川嶋メソッド</div><div style="font-size:10px;color:#64748b">'+(isAdmin?"🔒 管理者":S.role.name)+'</div></div></div>';
 if(S.screen==="call")h+='<div style="display:flex;align-items:center;gap:4px;background:#ecfdf5;padding:4px 8px;border-radius:12px"><div style="width:6px;height:6px;border-radius:50%;background:#10b981"></div><span id="tmr" style="font-size:14px;font-weight:800;color:#059669;font-family:monospace">'+timerFmt()+'</span></div>';
-h+='<button id="logoutBtn" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">ログアウト</button></header>';
+h+='<button id="lo" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">ログアウト</button></header>';
 
-/* ===== APPOINTMENT TICKER ===== */
+/* Ticker */
 if(!isAdmin&&S.role&&S.screen==="home"){
-  var upcoming=getUpcomingAppos(S.appoHist);
-  if(upcoming.length>0){
-    var tickerText="";
-    upcoming.forEach(function(u){
-      var dt=new Date(u.datetime);
-      var dateStr=(dt.getMonth()+1)+"/"+dt.getDate()+" "+pad(dt.getHours())+":"+pad(dt.getMinutes());
-      tickerText+="　　🔔 おいでん！"+dateStr+"　"+u.company+"　📞"+u.phone+"　"+u.address+"　";
-    });
-    h+='<div class="ticker"><span>'+tickerText+'</span></div>';
-  }
+  var up=getUpcoming();
+  if(up.length>0){var tt="";up.forEach(function(u){var dt=new Date(u.datetime);var ds=(dt.getMonth()+1)+"/"+dt.getDate()+" "+pad(dt.getHours())+":"+pad(dt.getMinutes());tt+="🔔 おいでん！"+ds+"　"+u.company+"　📞"+u.phone+"　"+u.address+"　　　"});h+='<div class="ticker"><span>'+tt+'</span></div>'}
 }
 
-/* ===== IMPORT MODAL ===== */
+/* Loading */
+if(S.loading){h+='<div class="loading">スプレッドシートから取得中...</div>';root.innerHTML=h;document.getElementById("lo").onclick=function(){S.role=null;S.screen="login";S.pin="";S.loading=false;R()};return}
+
+/* Import Modal */
 if(S.showImp){
-  var targetName="";if(S.adminTarget)for(var i=0;i<STAFF.length;i++)if(STAFF[i].id===S.adminTarget)targetName=STAFF[i].name;
-  if(!isAdmin&&S.role)targetName=S.role.name;
-  h+='<div id="impBg" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center"><div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid #e2e8f0"><span style="font-size:16px;font-weight:800">📋 '+targetName+' のリスト</span><button id="closeImpBtn" style="font-size:22px;color:#94a3b8;background:none;border:none;cursor:pointer">✕</button></div>';
-  h+='<div style="padding:16px">';
-  if(isAdmin){h+='<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:3px">対象</label><select id="targetSel" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:inherit">';STAFF.forEach(function(s){h+='<option value="'+s.id+'"'+(S.adminTarget===s.id?" selected":"")+'>'+s.name+'（'+s.pin+'）</option>'});h+='</select></div>'}
-  h+='<div style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.6">スプレッドシートの内容をコピーして下に貼り付け</div>';
-  h+='<textarea id="impTA" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#1e293b;resize:vertical;box-sizing:border-box;font-size:13px" rows="8" placeholder="ここに貼り付け"></textarea>';
-  h+='<div style="display:flex;gap:6px;margin-top:8px"><button id="impBtn" style="flex:1;padding:12px;border:none;border-radius:12px;background:#3b82f6;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">📥 読み込む</button><button id="testBtn" style="flex:1;padding:12px;border:2px dashed #e2e8f0;border-radius:12px;background:#f8fafc;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">🧪 テスト5件</button></div>';
+  var tn="";if(S.adminTarget)for(var i=0;i<STAFF.length;i++)if(STAFF[i].id===S.adminTarget)tn=STAFF[i].name;
+  if(!isAdmin&&S.role)tn=S.role.name;
+  h+='<div id="ib" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center"><div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">';
+  h+='<div style="display:flex;justify-content:space-between;padding:16px;border-bottom:1px solid #e2e8f0"><span style="font-size:16px;font-weight:800">📋 '+tn+'</span><button id="ci" style="font-size:22px;color:#94a3b8;background:none;border:none;cursor:pointer">✕</button></div><div style="padding:16px">';
+  if(isAdmin){h+='<div style="margin-bottom:10px"><select id="ts" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:inherit">';STAFF.forEach(function(s){h+='<option value="'+s.id+'"'+(S.adminTarget===s.id?" selected":"")+'>'+s.name+'</option>'});h+='</select></div>'}
+  h+='<div style="font-size:12px;color:#64748b;margin-bottom:8px">スプレッドシートの内容を貼り付け</div>';
+  h+='<textarea id="impTA" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;background:#f8fafc;resize:vertical;box-sizing:border-box;font-size:13px" rows="8" placeholder="ここに貼り付け"></textarea>';
+  h+='<button id="imb" style="width:100%;margin-top:8px;padding:12px;border:none;border-radius:12px;background:#3b82f6;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">📥 読み込む</button>';
   if(S.impErr)h+='<div style="margin-top:8px;padding:10px;background:#fef2f2;border-radius:8px;font-size:12px;color:#dc2626">'+S.impErr+'</div>';
-  /* Share code output */
-  if(S.shareCode&&isAdmin){
-    h+='<div style="margin-top:12px;padding:12px;background:#eff6ff;border-radius:10px;border:1px solid #93c5fd">';
-    h+='<div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:6px">📤 共有コード（LINEで送信）</div>';
-    h+='<div style="font-size:10px;color:#64748b;margin-bottom:6px">下のコードをコピーしてLINEでアポインターに送ってください。アポインターは「📥 リスト受信」から貼り付けます。</div>';
-    h+='<textarea id="shareCodeTA" style="width:100%;padding:8px;border:1px solid #93c5fd;border-radius:6px;background:#fff;font-size:10px;font-family:monospace;box-sizing:border-box" rows="3" readonly>'+S.shareCode+'</textarea>';
-    h+='<button id="copyCodeBtn" style="width:100%;margin-top:6px;padding:8px;border:1px solid #3b82f6;border-radius:8px;background:#eff6ff;color:#3b82f6;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📋 コードをコピー</button>';
-    h+='</div>';
-  }
-  h+='</div></div></div>';
-}
-
-/* ===== RECEIVE MODAL ===== */
-if(S.showReceive){
-  h+='<div id="recvBg" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center"><div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid #e2e8f0"><span style="font-size:16px;font-weight:800">📥 リスト受信</span><button id="closeRecvBtn" style="font-size:22px;color:#94a3b8;background:none;border:none;cursor:pointer">✕</button></div>';
-  h+='<div style="padding:16px">';
-  h+='<div style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.6">管理者からLINEで送られた共有コードを下に貼り付けて「受信」をタップ</div>';
-  h+='<textarea id="recvTA" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#1e293b;resize:vertical;box-sizing:border-box;font-size:12px;font-family:monospace" rows="5" placeholder="共有コードを貼り付け"></textarea>';
-  h+='<button id="recvBtn" style="width:100%;margin-top:8px;padding:14px;border:none;border-radius:12px;background:#10b981;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">📥 受信してリストを読み込む</button>';
-  if(S.recvErr)h+='<div style="margin-top:8px;padding:10px;background:#fef2f2;border-radius:8px;font-size:12px;color:#dc2626">'+S.recvErr+'</div>';
   h+='</div></div></div>';
 }
 
 h+='<main style="flex:1;overflow-y:auto;padding:10px">';
 
-/* ===== ADMIN ===== */
+/* ADMIN */
 if(S.screen==="admin"){
-  h+='<div style="font-size:18px;font-weight:800;color:#1a237e;margin-bottom:12px">🔒 管理者ダッシュボード</div>';
+  h+='<div style="font-size:18px;font-weight:800;color:#1a237e;margin-bottom:4px">🔒 管理者ダッシュボード</div>';
+  h+='<div style="font-size:11px;color:#64748b;margin-bottom:12px;line-height:1.6">スプレッドシートのタブ（柏木/園田/堀内）に架電リストを入力すると、各アポインターのログイン時に自動反映されます。</div>';
   STAFF.forEach(function(s){
-    var list=LD("app-list-"+s.id)||[];var calls=LD("app-calls-"+s.id)||[];var appos=LD("app-appos-"+s.id)||[];var att=LD("app-att-"+s.id)||{};
-    var tAtt=att[today()]||{};var tCalls=calls.filter(function(c){return c.d===today()});var tAppos=tCalls.filter(function(c){return c.r==="appo"}).length;
-    h+='<div style="background:#fff;border-radius:14px;padding:14px;border:1px solid #e2e8f0;margin-bottom:10px;border-left:4px solid '+(tAtt.ci&&!tAtt.co?"#10b981":tAtt.co?"#5c6bc0":"#78909c")+'">';
-    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:16px;font-weight:800;color:#1a237e">'+s.name+'</span><span style="font-size:11px;color:#94a3b8">PIN: '+s.pin+'</span></div>';
+    var list=LD("app-list-"+s.id)||[];var calls=LD("app-calls-"+s.id)||[];var appos=LD("app-appos-"+s.id)||[];var at=LD("app-att-"+s.id)||{};var ta=at[today()]||{};var tC=calls.filter(function(c){return c.d===today()});var tA=tC.filter(function(c){return c.r==="appo"}).length;
+    h+='<div style="background:#fff;border-radius:14px;padding:14px;border:1px solid #e2e8f0;margin-bottom:10px;border-left:4px solid '+(ta.ci&&!ta.co?"#10b981":ta.co?"#5c6bc0":"#78909c")+'">';
+    h+='<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:16px;font-weight:800;color:#1a237e">'+s.name+'</span><span style="font-size:11px;color:#94a3b8">PIN:'+s.pin+' / シート:'+s.sheet+'</span></div>';
     h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">';
-    [[list.length,"リスト","#3b82f6"],[tCalls.length,"本日架電","#3b82f6"],[tAppos,"本日アポ","#10b981"],[appos.length,"累計アポ","#f59e0b"]].forEach(function(k){
-      h+='<div style="text-align:center;background:#f1f5f9;border-radius:8px;padding:6px"><div style="font-size:10px;color:#64748b">'+k[1]+'</div><div style="font-size:16px;font-weight:800;color:'+k[2]+'">'+k[0]+'</div></div>';
-    });
+    [[list.length,"リスト","#3b82f6"],[tC.length,"本日架電","#3b82f6"],[tA,"本日アポ","#10b981"],[appos.length,"累計アポ","#f59e0b"]].forEach(function(k){h+='<div style="text-align:center;background:#f1f5f9;border-radius:8px;padding:6px"><div style="font-size:9px;color:#64748b">'+k[1]+'</div><div style="font-size:16px;font-weight:800;color:'+k[2]+'">'+k[0]+'</div></div>'});
     h+='</div>';
-    h+='<div style="font-size:11px;color:#64748b;margin-bottom:8px">出勤:<b>'+(tAtt.ci?tAtt.ci.slice(0,5):"—")+'</b> 退勤:<b>'+(tAtt.co?tAtt.co.slice(0,5):"—")+'</b> 休憩:<b>'+(tAtt.bs?tAtt.bs.slice(0,5):"—")+'</b>〜<b>'+(tAtt.be?tAtt.be.slice(0,5):"—")+'</b></div>';
-    h+='<button data-load="'+s.id+'" style="width:100%;padding:10px;border:2px solid #3b82f6;border-radius:10px;background:#eff6ff;color:#3b82f6;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">📋 架電リストを読込・更新</button>';
-    h+='</div>';
+    h+='<div style="font-size:11px;color:#64748b;margin-bottom:6px">出勤:<b>'+(ta.ci?ta.ci.slice(0,5):"—")+'</b> 退勤:<b>'+(ta.co?ta.co.slice(0,5):"—")+'</b></div>';
+    h+='<button data-ld="'+s.id+'" style="width:100%;padding:10px;border:2px solid #3b82f6;border-radius:10px;background:#eff6ff;color:#3b82f6;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">📋 手動でリスト読込</button></div>';
   });
-  h+='<div style="background:#fff;border-radius:14px;padding:14px;border:1px solid #e2e8f0"><div style="font-size:13px;font-weight:800;color:#1a237e;margin-bottom:6px">⚙ GAS連携</div><input id="gasInp" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;color:#1e293b;box-sizing:border-box;font-size:13px" value="'+S.gasUrl+'" placeholder="https://script.google.com/macros/s/.../exec">'+(S.gasUrl?'<div style="margin-top:4px;padding:4px 8px;background:#e0f2f1;border-radius:6px;font-size:11px;color:#00695c">✓ 連携ON</div>':'')+'</div>';
+  h+='<div style="background:#fff;border-radius:14px;padding:14px;border:1px solid #e2e8f0"><div style="font-size:13px;font-weight:800;color:#1a237e;margin-bottom:6px">⚙ GAS URL</div><div style="font-size:10px;color:#64748b;margin-bottom:6px;line-height:1.6">設定するとアポインターのログイン時にスプレッドシートから自動取得</div><input id="gi" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;box-sizing:border-box;font-size:12px" value="'+S.gasUrl+'" placeholder="https://script.google.com/macros/s/.../exec">'+(S.gasUrl?'<div style="margin-top:4px;padding:4px 8px;background:#e0f2f1;border-radius:6px;font-size:11px;color:#00695c">✓ 自動取得ON</div>':'')+'</div>';
 }
 
-/* ===== STAFF HOME ===== */
+/* STAFF HOME */
 else if(S.screen==="home"&&!isAdmin){
-  var att=todayAtt();var tc=todayCalls();var tdA=tc.filter(function(c){return c.r==="appo"}).length;var cur=S.prospects[S.ci]||null;
+  var att=todayAtt(),tc=todayCalls(),tdA=tc.filter(function(c){return c.r==="appo"}).length,cur=S.prospects[S.ci]||null;
+  var skippedCount=Object.keys(S.skipped).filter(function(k){return S.skipped[k]}).length;
   h+='<div style="background:#fff;border-radius:14px;padding:14px;border:1px solid #e2e8f0;margin-bottom:8px;border-left:4px solid '+(att.ci&&!att.co?"#10b981":att.co?"#5c6bc0":"#78909c")+'">';
   h+='<div style="font-size:12px;font-weight:800;color:#1a237e;margin-bottom:6px">⏱ 勤怠 — '+dateJP()+'</div>';
   h+='<div style="display:flex;gap:6px;font-size:11px;color:#64748b;margin-bottom:6px;flex-wrap:wrap"><span>出勤:<b>'+(att.ci?att.ci.slice(0,5):"—")+'</b></span><span>退勤:<b>'+(att.co?att.co.slice(0,5):"—")+'</b></span><span>休憩:<b>'+(att.bs?att.bs.slice(0,5):"—")+'</b>〜<b>'+(att.be?att.be.slice(0,5):"—")+'</b></span></div>';
-  h+='<div id="attBox" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px"></div></div>';
+  h+='<div id="ab" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px"></div></div>';
   h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">';
   [[tc.length,"本日架電","#3b82f6"],[tdA,"本日アポ","#10b981"],[S.appoHist.length,"累計アポ","#f59e0b"]].forEach(function(k){h+='<div style="background:#fff;border-radius:12px;padding:12px;text-align:center;border:1px solid #e2e8f0"><div style="font-size:22px;font-weight:800;color:'+k[2]+'">'+k[0]+'</div><div style="font-size:10px;color:#64748b">'+k[1]+'</div></div>'});
   h+='</div>';
   if(S.prospects.length>0&&cur){
-    h+='<div style="background:#fff;border-radius:14px;padding:14px;border:2px solid #3b82f6;margin-bottom:8px"><div style="font-size:11px;color:#94a3b8">次の架電先 ('+(S.ci+1)+'/'+S.prospects.length+')</div><div style="font-size:17px;font-weight:800;margin-top:2px">'+(gf(cur,"co")||"行"+(S.ci+1))+'</div><div style="display:flex;gap:10px;margin-top:4px;font-size:13px;color:#64748b">'+(gf(cur,"pe")?'<span>👤'+gf(cur,"pe")+'</span>':'')+(gf(cur,"ph")?'<span style="color:#3b82f6">📞'+gf(cur,"ph")+'</span>':'')+'</div><button id="startBtn" style="display:block;width:100%;padding:15px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:52px;cursor:pointer;background:linear-gradient(135deg,#10b981,#059669);margin-top:8px;font-family:inherit">📞 この施設に架電開始</button><div id="navBox" style="display:flex;gap:6px;margin-top:6px"></div></div>';
+    var curSkipped=isSkipped(S.ci);
+    h+='<div style="background:#fff;border-radius:14px;padding:14px;border:2px solid '+(curSkipped?"#f59e0b":"#3b82f6")+';margin-bottom:8px">';
+    if(curSkipped)h+='<div style="background:#fef3c7;padding:4px 8px;border-radius:6px;font-size:11px;color:#92400e;margin-bottom:6px;font-weight:700">⏭ スキップ済み</div>';
+    h+='<div style="font-size:11px;color:#94a3b8">架電先 ('+(S.ci+1)+'/'+S.prospects.length+')'+(skippedCount>0?' ・ スキップ'+skippedCount+'件':'')+'</div>';
+    h+='<div style="font-size:17px;font-weight:800;margin-top:2px">'+(gf(cur,"co")||"行"+(S.ci+1))+'</div>';
+    h+='<div style="display:flex;gap:10px;margin-top:4px;font-size:13px;color:#64748b">'+(gf(cur,"pe")?'<span>👤'+gf(cur,"pe")+'</span>':'')+(gf(cur,"ph")?'<span style="color:#3b82f6">📞'+gf(cur,"ph")+'</span>':'')+'</div>';
+    if(!curSkipped)h+='<button id="sc" style="display:block;width:100%;padding:15px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:52px;cursor:pointer;background:linear-gradient(135deg,#10b981,#059669);margin-top:8px;font-family:inherit">📞 この施設に架電開始</button>';
+    h+='<div style="display:flex;gap:6px;margin-top:6px">';
+    h+='<button id="pv" style="flex:1;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#64748b;font-size:12px;font-weight:600;text-align:center;cursor:pointer;font-family:inherit;opacity:'+(S.ci>0?1:.3)+'">← 前</button>';
+    h+='<button id="sk" style="flex:1;padding:8px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;color:#92400e;font-size:12px;font-weight:700;text-align:center;cursor:pointer;font-family:inherit">⏭ スキップ</button>';
+    h+='<button id="nx" style="flex:1;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#64748b;font-size:12px;font-weight:600;text-align:center;cursor:pointer;font-family:inherit;opacity:'+(S.ci<S.prospects.length-1?1:.3)+'">次 →</button>';
+    h+='</div>';
+    if(skippedCount>0)h+='<button id="us" style="width:100%;margin-top:4px;padding:6px;border:none;border-radius:6px;background:#f1f5f9;color:#94a3b8;font-size:11px;cursor:pointer;font-family:inherit">スキップ全解除 ('+skippedCount+'件)</button>';
+    h+='</div>';
   }else{
-    h+='<div style="background:#fff;border-radius:14px;padding:20px;border:1px solid #e2e8f0;margin-bottom:8px;text-align:center;color:#94a3b8"><div style="font-size:40px;margin-bottom:8px">📋</div>架電リストがありません<br><b>「📥 リスト受信」</b>から<br>管理者の共有コードで読み込めます</div>';
+    h+='<div style="background:#fff;border-radius:14px;padding:20px;border:1px solid #e2e8f0;margin-bottom:8px;text-align:center;color:#94a3b8"><div style="font-size:40px;margin-bottom:8px">📋</div>架電リストがありません';
+    if(S.gasUrl)h+='<br><button id="rf" style="margin-top:10px;padding:10px 20px;border:2px solid #3b82f6;border-radius:10px;background:#eff6ff;color:#3b82f6;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🔄 スプレッドシートから再取得</button>';
+    h+='</div>';
   }
-  h+='<div id="menuBox" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>';
+  h+='<div id="mb" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>';
 }
 
-/* ===== CALL ===== */
-else if(S.screen==="call"){var it=ALL[S.cardI];if(it){var cp=comp();var cur=S.prospects[S.ci]||null;
+/* CALL */
+else if(S.screen==="call"){var it=ALL[S.cardI];if(it){var cp=comp(),cur=S.prospects[S.ci]||null;
 h+='<div style="padding:6px 12px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(cur?gf(cur,"co"):"—")+'</span><span style="font-size:14px;font-weight:800;color:'+(cp>=80?"#10b981":cp>=50?"#f59e0b":"#94a3b8")+';font-family:monospace">読了'+cp+'%</span></div>';
 h+='<div style="display:flex;padding:3px 12px;gap:3px;background:#f1f5f9">';STEPS.forEach(function(st){var d=st.items.filter(function(i){return S.ck[i.id]}).length;var p=Math.round(d/st.items.length*100);h+='<div style="flex:1"><div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden"><div style="height:100%;width:'+p+'%;background:'+st.c+';border-radius:3px;transition:width .3s"></div></div><div style="font-size:8px;text-align:center;color:'+(p===100?st.c:"#94a3b8")+';margin-top:1px">S'+st.id+'</div></div>'});h+='</div>';
 h+='<div style="flex:1;display:flex;flex-direction:column;padding:6px 12px;overflow:auto"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:16px">'+it.sIc+'</span><span style="font-size:12px;font-weight:800;color:'+it.sC+'">Step'+it.sId+' '+it.sT+'</span><span style="font-size:11px;color:#94a3b8;margin-left:auto;font-family:monospace">'+(S.cardI+1)+'/'+ALL.length+'</span></div>';
 h+='<div style="font-size:14px;font-weight:800;margin-bottom:6px">'+it.l+(it.m?'<span style="font-size:9px;padding:2px 5px;border-radius:4px;background:#fef2f2;color:#ef4444;margin-left:6px">必須</span>':'')+'</div>';
 var chk=S.ck[it.id];h+='<div style="flex:1;display:flex;flex-direction:column;justify-content:center;background:'+(chk?"#f0fdf4":"#fff")+';border:2px solid '+(chk?it.sC:"#e2e8f0")+';border-radius:16px;padding:16px 14px;min-height:90px"><div style="font-size:19px;font-weight:500;line-height:2;text-align:center;white-space:pre-line">'+it.tx+'</div>'+(chk?'<div style="text-align:center;margin-top:6px;font-size:24px">✅</div>':'')+'</div>';
 h+='<div style="display:flex;gap:6px;padding:6px 8px;background:#fffbeb;border-radius:8px;margin-top:6px"><span>💡</span><span style="font-size:12px;color:#92400e">'+it.h+'</span></div></div>';
-h+='<div style="padding:6px 12px;background:#fff;border-top:1px solid #e2e8f0"><button id="chkBtn" style="display:block;width:100%;padding:14px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:50px;cursor:pointer;font-family:inherit;margin-bottom:6px;background:'+(chk?"#d1d5db":it.sC)+'">'+(chk?"✅ 読了済み":"☐ 読了チェック")+'</button><div id="callNavBox" style="display:flex;gap:4px"></div></div>';
+h+='<div style="padding:6px 12px;background:#fff;border-top:1px solid #e2e8f0"><button id="ck" style="display:block;width:100%;padding:14px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:50px;cursor:pointer;font-family:inherit;margin-bottom:6px;background:'+(chk?"#d1d5db":it.sC)+'">'+(chk?"✅ 読了済み":"☐ 読了チェック")+'</button><div id="cn" style="display:flex;gap:4px"></div></div>';
 }}
 
-/* ===== RESULT ===== */
-else if(S.screen==="result"){var cp=comp();var cur=S.prospects[S.ci]||null;
-h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="backBtn" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">← 戻る</button><span style="font-size:15px;font-weight:800">架電結果</span></div>';
+/* RESULT */
+else if(S.screen==="result"){var cp=comp(),cur=S.prospects[S.ci]||null;
+h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="bk" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">← 戻る</button><span style="font-size:15px;font-weight:800">架電結果</span></div>';
 h+='<div style="display:flex;gap:8px;font-size:12px;color:#64748b;margin-bottom:8px"><span>🏢'+(cur?gf(cur,"co"):"—")+'</span><span>⏱'+timerFmt()+'</span><span style="font-weight:700;color:'+(cp>=80?"#10b981":"#f59e0b")+'">読了'+cp+'%</span></div>';
-h+='<div id="resBox" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px"></div>';
-h+='<textarea id="memoTA" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#1e293b;resize:vertical;box-sizing:border-box;font-size:13px" rows="2" placeholder="📝 メモ">'+S.memo+'</textarea>';
-h+='<button id="saveBtn" style="display:block;width:100%;padding:15px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:52px;cursor:pointer;font-family:inherit;margin-top:8px;opacity:'+(S.selRes?1:.4)+';background:'+(S.selRes==="appo"?"#1a237e":"linear-gradient(135deg,#10b981,#059669)")+'">'+(S.selRes==="appo"?"🎯 アポ詳細へ →":"✅ 保存 → 次へ")+'</button>';
-}
+h+='<div id="rb" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px"></div>';
+h+='<textarea id="memoTA" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;resize:vertical;box-sizing:border-box;font-size:13px" rows="2" placeholder="📝 メモ">'+S.memo+'</textarea>';
+h+='<button id="sv" style="display:block;width:100%;padding:15px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:52px;cursor:pointer;font-family:inherit;margin-top:8px;opacity:'+(S.selRes?1:.4)+';background:'+(S.selRes==="appo"?"#1a237e":"linear-gradient(135deg,#10b981,#059669)")+'">'+(S.selRes==="appo"?"🎯 アポ詳細へ":"✅ 保存 → 次へ")+'</button>'}
 
-/* ===== APPO FORM ===== */
+/* APPO FORM */
 else if(S.screen==="appo_form"){
-h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="skipBtn" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">← スキップ</button><span style="font-size:15px;font-weight:800">🎯 アポ詳細</span></div>';
+h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="skp" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">← スキップ</button><span style="font-size:15px;font-weight:800">🎯 アポ詳細</span></div>';
 [["project","案件名"],["company","会社名"],["person","担当者名"]].forEach(function(f){h+='<div style="margin-bottom:6px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">'+f[1]+'</label><input id="af_'+f[0]+'" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;box-sizing:border-box" value="'+(S.af[f[0]]||"")+'"></div>'});
-h+='<div style="margin-bottom:6px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">性別</label><div id="genBox" style="display:flex;gap:6px"></div></div>';
+h+='<div style="margin-bottom:6px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">性別</label><div id="gb" style="display:flex;gap:6px"></div></div>';
 [["phone","電話番号","tel"],["role","役職","text"],["address","住所","text"]].forEach(function(f){h+='<div style="margin-bottom:6px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">'+f[1]+'</label><input id="af_'+f[0]+'" type="'+f[2]+'" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;box-sizing:border-box" value="'+(S.af[f[0]]||"")+'"></div>'});
 h+='<div style="margin-bottom:6px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">アポ日時</label><input id="af_datetime" type="datetime-local" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;box-sizing:border-box" value="'+(S.af.datetime||"")+'"></div>';
 h+='<div style="margin-bottom:6px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">メール</label><input id="af_email" type="email" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;box-sizing:border-box" value="'+(S.af.email||"")+'"></div>';
 h+='<div style="margin-bottom:10px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">人柄（重要）</label><textarea id="af_personality" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;resize:vertical;box-sizing:border-box" rows="2">'+(S.af.personality||"")+'</textarea></div>';
-h+='<button id="sendBtn" style="display:block;width:100%;padding:15px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:52px;cursor:pointer;font-family:inherit;background:#1a237e">📧 Gmailで楠さんに送信</button>';
+h+='<button id="sd" style="display:block;width:100%;padding:15px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:52px;cursor:pointer;font-family:inherit;background:#1a237e">📧 Gmailで楠さんに送信</button>';
 }
 
-/* ===== APPO LIST / LIST / SETTINGS ===== */
+/* APPO LIST */
 else if(S.screen==="appolist"){
-  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="backBtn" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">← 戻る</button><span style="font-size:15px;font-weight:800">🎯 アポ一覧 ('+S.appoHist.length+')</span></div>';
-  if(!S.appoHist.length)h+='<div style="text-align:center;padding:40px;color:#94a3b8">履歴なし</div>';else h+='<div id="apoBox"></div>';
+  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="bk" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">← 戻る</button><span style="font-size:15px;font-weight:800">🎯 アポ一覧 ('+S.appoHist.length+')</span></div>';
+  if(!S.appoHist.length)h+='<div style="text-align:center;padding:40px;color:#94a3b8">履歴なし</div>';else h+='<div id="apo"></div>';
 }
+
+/* LIST */
 else if(S.screen==="list"){
-  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="backBtn" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">← 戻る</button><span style="font-size:15px;font-weight:800">リスト ('+S.prospects.length+')</span></div>';
-  h+='<div id="listBox"></div>';
+  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="bk" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">← 戻る</button><span style="font-size:15px;font-weight:800">リスト ('+S.prospects.length+')</span></div>';
+  h+='<div id="lst"></div>';
 }
 
-h+='</main>';
-root.innerHTML=h;
+h+='</main>';root.innerHTML=h;
 
-/* ===== EVENTS ===== */
+/* EVENTS */
 function B(id,fn){var el=document.getElementById(id);if(el)el.addEventListener("click",fn)}
-B("logoutBtn",function(){S.role=null;S.screen="login";S.pin="";R()});
-B("impBg",function(e){if(e.target.id==="impBg"){S.showImp=false;S.impErr="";R()}});
-B("closeImpBtn",function(){S.showImp=false;S.impErr="";R()});
-B("impBtn",doImport);B("testBtn",doTestData);
-B("recvBg",function(e){if(e.target.id==="recvBg"){S.showReceive=false;S.recvErr="";R()}});
-B("closeRecvBtn",function(){S.showReceive=false;S.recvErr="";R()});
-B("recvBtn",doReceiveCode);
-B("startBtn",startCall);B("chkBtn",doCheck);
-B("saveBtn",function(){if(S.selRes)saveResult()});
-B("sendBtn",sendAppo);
-B("skipBtn",function(){goNext();S.screen="home";flash("スキップ")});
-B("backBtn",function(){S.screen=S.screen==="result"?"call":"home";R()});
-B("copyCodeBtn",function(){var ta=document.getElementById("shareCodeTA");if(ta){ta.select();document.execCommand("copy");flash("📋 コードをコピーしました！")}});
+B("lo",function(){S.role=null;S.screen="login";S.pin="";R()});
+B("ib",function(e){if(e.target.id==="ib"){S.showImp=false;R()}});
+B("ci",function(){S.showImp=false;R()});
+B("imb",doImport);
+B("sc",startCall);B("ck",doCheck);
+B("sv",function(){if(S.selRes)saveResult()});
+B("sd",sendAppo);
+B("skp",function(){goNext();S.screen="home";flash("スキップ")});
+B("bk",function(){S.screen=S.screen==="result"?"call":"home";R()});
+B("pv",function(){if(S.ci>0){S.ci--;R()}});
+B("nx",function(){if(S.ci<S.prospects.length-1){S.ci++;R()}});
+B("sk",doSkip);
+B("us",undoSkips);
+B("rf",function(){if(S.role&&S.role!=="admin")fetchListFromSheets(S.role)});
 
-var gasInp=document.getElementById("gasInp");if(gasInp)gasInp.addEventListener("input",function(){S.gasUrl=this.value;SV("app-gas",this.value)});
-var tgtSel=document.getElementById("targetSel");if(tgtSel)tgtSel.addEventListener("change",function(){S.adminTarget=this.value});
-document.querySelectorAll("[data-load]").forEach(function(el){el.addEventListener("click",function(){S.adminTarget=el.getAttribute("data-load");S.showImp=true;S.impErr="";S.shareCode="";R()})});
+var gi=document.getElementById("gi");if(gi)gi.addEventListener("input",function(){S.gasUrl=this.value;SV("app-gas",this.value)});
+var ts=document.getElementById("ts");if(ts)ts.addEventListener("change",function(){S.adminTarget=this.value});
+document.querySelectorAll("[data-ld]").forEach(function(el){el.addEventListener("click",function(){S.adminTarget=el.getAttribute("data-ld");S.showImp=true;S.impErr="";R()})});
 
-var attBox=document.getElementById("attBox");
-if(attBox){var att=todayAtt();[["ci","出勤","#10b981",!!att.ci],["bs","休憩始","#f59e0b",!att.ci||!!att.bs],["be","休憩終","#3b82f6",!att.bs||!!att.be],["co","退勤","#5c6bc0",!att.ci||!!att.co]].forEach(function(x){var b=document.createElement("button");b.textContent=x[1];b.style.cssText="padding:10px 4px;border:2px solid "+x[2]+";border-radius:8px;background:#fff;font-size:12px;font-weight:700;min-height:42px;text-align:center;color:"+x[2]+";opacity:"+(x[3]?0.25:1)+";cursor:pointer;font-family:inherit";b.disabled=x[3];if(!x[3])b.onclick=function(){doPunch(x[0])};attBox.appendChild(b)})}
+var ab=document.getElementById("ab");
+if(ab){var att=todayAtt();[["ci","出勤","#10b981",!!att.ci],["bs","休憩始","#f59e0b",!att.ci||!!att.bs],["be","休憩終","#3b82f6",!att.bs||!!att.be],["co","退勤","#5c6bc0",!att.ci||!!att.co]].forEach(function(x){var b=document.createElement("button");b.textContent=x[1];b.style.cssText="padding:10px 4px;border:2px solid "+x[2]+";border-radius:8px;background:#fff;font-size:12px;font-weight:700;min-height:42px;text-align:center;color:"+x[2]+";opacity:"+(x[3]?0.25:1)+";cursor:pointer;font-family:inherit";b.disabled=x[3];if(!x[3])b.onclick=function(){doPunch(x[0])};ab.appendChild(b)})}
 
-var navBox=document.getElementById("navBox");
-if(navBox){[["← 前",S.ci>0,function(){S.ci--;R()}],["次 →",S.ci<S.prospects.length-1,function(){S.ci++;R()}],["⏭ 未架電",true,function(){goNext();R()}]].forEach(function(x){var b=document.createElement("button");b.textContent=x[0];b.style.cssText="flex:1;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#64748b;font-size:12px;font-weight:600;min-height:36px;text-align:center;opacity:"+(x[1]?1:.3)+";cursor:pointer;font-family:inherit";if(x[1])b.onclick=x[2];navBox.appendChild(b)})}
+var mb=document.getElementById("mb");
+if(mb){var unc=S.prospects.filter(function(_,i){return shouldShow(i)}).length;
+[["📑 リスト一覧","残"+unc+"件",function(){S.screen="list";R()}],["🎯 アポ履歴",S.appoHist.length+"件",function(){S.screen="appolist";R()}]].forEach(function(m){var b=document.createElement("button");b.innerHTML=m[0]+'<br><span style="font-size:10px;color:#94a3b8">'+m[1]+'</span>';b.style.cssText="padding:14px 12px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;color:#1e293b;font-size:14px;font-weight:700;text-align:left;cursor:pointer;font-family:inherit";b.onclick=m[2];mb.appendChild(b)})}
 
-var menuBox=document.getElementById("menuBox");
-if(menuBox){var unc=S.prospects.filter(function(_,i){return!isCalled(i)}).length;
-[["📥 リスト受信","共有コード",function(){S.showReceive=true;S.recvErr="";R()}],["📑 リスト一覧","未"+unc,function(){S.screen="list";R()}],["🎯 アポ履歴",S.appoHist.length+"件",function(){S.screen="appolist";R()}],["📋 リスト読込","コピペ",function(){S.showImp=true;S.impErr="";S.shareCode="";R()}]].forEach(function(m){var b=document.createElement("button");b.innerHTML=m[0]+'<br><span style="font-size:10px;color:#94a3b8">'+m[1]+'</span>';b.style.cssText="padding:14px 12px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;color:#1e293b;font-size:14px;font-weight:700;text-align:left;cursor:pointer;font-family:inherit";b.onclick=m[2];menuBox.appendChild(b)})}
+var cn=document.getElementById("cn");
+if(cn){[["← 前",S.cardI>0,function(){S.cardI--;R()}],["次 →",S.cardI<ALL.length-1,function(){S.cardI++;R()}],["⏹ 終了",true,function(){stopTimer();S.screen="result";R()}]].forEach(function(x,i){var b=document.createElement("button");b.textContent=x[0];b.style.cssText="flex:1;padding:11px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#64748b;font-size:13px;font-weight:600;text-align:center;min-height:44px;opacity:"+(x[1]?1:.3)+";cursor:pointer;font-family:inherit";if(i===2)b.style.cssText+=";background:#fef2f2;color:#dc2626;border-color:#fecaca;font-weight:700";if(x[1])b.onclick=x[2];cn.appendChild(b)})}
 
-var callNavBox=document.getElementById("callNavBox");
-if(callNavBox){[["← 前",S.cardI>0,function(){S.cardI--;R()}],["次 →",S.cardI<ALL.length-1,function(){S.cardI++;R()}],["⏹ 終了",true,function(){stopTimer();S.screen="result";R()}]].forEach(function(x,i){var b=document.createElement("button");b.textContent=x[0];b.style.cssText="flex:1;padding:11px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#64748b;font-size:13px;font-weight:600;text-align:center;min-height:44px;opacity:"+(x[1]?1:.3)+";cursor:pointer;font-family:inherit";if(i===2)b.style.cssText+=";background:#fef2f2;color:#dc2626;border-color:#fecaca;font-weight:700";if(x[1])b.onclick=x[2];callNavBox.appendChild(b)})}
+var rb=document.getElementById("rb");
+if(rb){RTYPES.forEach(function(r){var b=document.createElement("button");var sel=S.selRes===r.id;b.style.cssText="display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 2px;border:2px solid "+(sel?r.c:"#e2e8f0")+";border-radius:10px;background:"+(sel?r.c+"10":"#fff")+";min-height:52px;cursor:pointer;font-family:inherit";b.innerHTML='<span style="font-size:20px">'+r.i+'</span><span style="font-size:10px;font-weight:700;color:'+(sel?r.c:"#94a3b8")+'">'+r.l+'</span>';b.onclick=function(){S.selRes=r.id;R()};rb.appendChild(b)})}
 
-var resBox=document.getElementById("resBox");
-if(resBox){RTYPES.forEach(function(r){var b=document.createElement("button");var sel=S.selRes===r.id;b.style.cssText="display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 2px;border:2px solid "+(sel?r.c:"#e2e8f0")+";border-radius:10px;background:"+(sel?r.c+"10":"#fff")+";min-height:52px;cursor:pointer;font-family:inherit";b.innerHTML='<span style="font-size:20px">'+r.i+'</span><span style="font-size:10px;font-weight:700;color:'+(sel?r.c:"#94a3b8")+'">'+r.l+'</span>';b.onclick=function(){S.selRes=r.id;R()};resBox.appendChild(b)})}
+var gb=document.getElementById("gb");
+if(gb){["男","女"].forEach(function(g){var b=document.createElement("button");b.textContent=g;var sel=S.af.gender===g;b.style.cssText="flex:1;padding:8px;border:2px solid "+(sel?"#3b82f6":"#e2e8f0")+";border-radius:8px;background:"+(sel?"#eff6ff":"#fff")+";color:"+(sel?"#3b82f6":"#64748b")+";font-size:13px;font-weight:700;cursor:pointer;font-family:inherit";b.onclick=function(){S.af.gender=g;R()};gb.appendChild(b)})}
 
-var genBox=document.getElementById("genBox");
-if(genBox){["男","女"].forEach(function(g){var b=document.createElement("button");b.textContent=g;var sel=S.af.gender===g;b.style.cssText="flex:1;padding:8px;border:2px solid "+(sel?"#3b82f6":"#e2e8f0")+";border-radius:8px;background:"+(sel?"#eff6ff":"#fff")+";color:"+(sel?"#3b82f6":"#64748b")+";font-size:13px;font-weight:700;cursor:pointer;font-family:inherit";b.onclick=function(){S.af.gender=g;R()};genBox.appendChild(b)})}
+var lst=document.getElementById("lst");
+if(lst){var tc=todayCalls();S.prospects.forEach(function(row,i){var cl=isCalled(i),sk=isSkipped(i);var ri=null;if(cl){var m=tc.filter(function(c){return c.pi===i});if(m.length)for(var j=0;j<RTYPES.length;j++)if(RTYPES[j].id===m[0].r){ri=RTYPES[j];break}}var d=document.createElement("div");d.style.cssText="padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:"+(i===S.ci?"#eff6ff":sk?"#fffbeb":cl?"#f8fafc":"#fff")+";border-radius:8px;margin-bottom:2px";d.innerHTML='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#94a3b8;width:22px">'+(i+1)+'</span><span style="flex:1;font-size:14px;font-weight:700;'+(sk?"text-decoration:line-through;color:#94a3b8":"")+'">'+(gf(row,"co")||"行"+(i+1))+'</span>'+(sk?'<span style="font-size:9px;padding:2px 4px;border-radius:4px;background:#fef3c7;color:#92400e">スキップ</span>':cl&&ri?'<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:'+ri.c+'15;color:'+ri.c+';font-weight:700">'+ri.i+ri.l+'</span>':'<span style="font-size:9px;padding:2px 4px;border-radius:4px;background:#f1f5f9;color:#94a3b8">未</span>')+'</div>'+(gf(row,"ph")?'<div style="font-size:12px;color:#3b82f6;margin-top:2px;margin-left:28px">📞'+gf(row,"ph")+'</div>':'');d.onclick=function(){S.ci=i;S.screen="home";R()};lst.appendChild(d)})}
 
-var listBox=document.getElementById("listBox");
-if(listBox){var tc=todayCalls();S.prospects.forEach(function(row,i){var cl=isCalled(i);var ri=null;if(cl){var m=tc.filter(function(c){return c.pi===i});if(m.length)for(var j=0;j<RTYPES.length;j++)if(RTYPES[j].id===m[0].r){ri=RTYPES[j];break}}var d=document.createElement("div");d.style.cssText="padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:"+(i===S.ci?"#eff6ff":cl?"#f8fafc":"#fff")+";border-radius:8px;margin-bottom:2px";d.innerHTML='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#94a3b8;width:22px">'+(i+1)+'</span><span style="flex:1;font-size:14px;font-weight:700">'+(gf(row,"co")||"行"+(i+1))+'</span>'+(cl&&ri?'<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:'+ri.c+'15;color:'+ri.c+';font-weight:700">'+ri.i+ri.l+'</span>':'<span style="font-size:9px;padding:2px 4px;border-radius:4px;background:#f1f5f9;color:#94a3b8">未</span>')+'</div>'+(gf(row,"ph")?'<div style="font-size:12px;color:#3b82f6;margin-top:2px;margin-left:28px">📞'+gf(row,"ph")+'</div>':'');d.onclick=function(){S.ci=i;S.screen="home";R()};listBox.appendChild(d)})}
-
-var apoBox=document.getElementById("apoBox");
-if(apoBox){S.appoHist.forEach(function(a){var d=document.createElement("div");d.style.cssText="background:#fff;border-radius:14px;padding:14px;border:1px solid #e2e8f0;margin-bottom:8px";d.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:14px;font-weight:800;color:#1a237e">'+(a.company||"—")+'</span><span style="font-size:10px;color:#94a3b8">'+(a.date||"")+'</span></div><div style="font-size:12px;color:#475569;line-height:1.7">'+(a.project?'<div>📋 '+a.project+'</div>':'')+'<div>👤 '+(a.person||"")+'（'+(a.gender||"")+'）'+(a.role?" / "+a.role:"")+'</div>'+(a.phone?'<div style="color:#3b82f6;font-weight:700;cursor:pointer" data-ph="'+a.phone+'">📞 '+a.phone+'（発信）</div>':'')+(a.address?'<div>📍 '+a.address+'</div>':'')+(a.datetime?'<div>📅 '+a.datetime+'</div>':'')+(a.email?'<div>✉ '+a.email+'</div>':'')+(a.personality?'<div>💬 '+a.personality+'</div>':'')+'</div>';d.querySelectorAll("[data-ph]").forEach(function(el){el.addEventListener("click",function(){dialPhone(el.getAttribute("data-ph"))})});apoBox.appendChild(d)})}
+var apo=document.getElementById("apo");
+if(apo){S.appoHist.forEach(function(a){var d=document.createElement("div");d.style.cssText="background:#fff;border-radius:14px;padding:14px;border:1px solid #e2e8f0;margin-bottom:8px";d.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:14px;font-weight:800;color:#1a237e">'+(a.company||"—")+'</span><span style="font-size:10px;color:#94a3b8">'+(a.date||"")+'</span></div><div style="font-size:12px;color:#475569;line-height:1.7">'+(a.project?'<div>📋 '+a.project+'</div>':'')+'<div>👤 '+(a.person||"")+'（'+(a.gender||"")+'）'+(a.role?" / "+a.role:"")+'</div>'+(a.phone?'<div style="color:#3b82f6;font-weight:700;cursor:pointer" data-ph="'+a.phone+'">📞 '+a.phone+'（発信）</div>':'')+(a.address?'<div>📍 '+a.address+'</div>':'')+(a.datetime?'<div>📅 '+a.datetime+'</div>':'')+(a.email?'<div>✉ '+a.email+'</div>':'')+(a.personality?'<div>💬 '+a.personality+'</div>':'')+'</div>';d.querySelectorAll("[data-ph]").forEach(function(el){el.addEventListener("click",function(){dialPhone(el.getAttribute("data-ph"))})});apo.appendChild(d)})}
 
 }catch(e){document.getElementById("root").innerHTML='<div style="padding:20px;color:red;font-size:12px"><b>エラー:</b> '+String(e.message||e)+'<br><button onclick="location.reload()" style="margin-top:10px;padding:10px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px">再読み込み</button></div>'}
 }
