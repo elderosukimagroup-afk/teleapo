@@ -6,24 +6,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>川嶋メソッド</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+*{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,'Hiragino Kaku Gothic ProN',sans-serif;background:#f8fafc;color:#1e293b;max-width:480px;margin:0 auto;min-height:100vh;font-size:14px}
-button{font-family:inherit;cursor:pointer}input,textarea,select{font-family:inherit;font-size:14px}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,textarea,select{font-family:inherit;font-size:14px;outline:none}
+a{text-decoration:none}
 @keyframes scroll{0%{transform:translateX(100%)}100%{transform:translateX(-200%)}}
-.ticker{background:linear-gradient(90deg,#fef3c7,#fde68a);padding:8px 0;overflow:hidden;white-space:nowrap;border-bottom:1px solid #f59e0b}
+.ticker{background:#fef3c7;padding:8px 0;overflow:hidden;white-space:nowrap;border-bottom:1px solid #f59e0b}
 .ticker span{display:inline-block;padding-left:100%;animation:scroll 25s linear infinite;font-size:13px;font-weight:700;color:#92400e}
-.step-card{background:#fff;border-radius:12px;padding:12px;border:1px solid #e2e8f0;margin-bottom:8px}
-.step-title{font-size:13px;font-weight:800;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-.step-note{font-size:12px;color:#475569;line-height:1.8;margin-bottom:6px;padding:8px;background:#f8fafc;border-radius:8px}
-.chk-row{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;margin-bottom:4px;cursor:pointer;border:1.5px solid #e2e8f0}
-.chk-row.done{border-color:#10b981;background:#f0fdf4}
-.chk-box{width:24px;height:24px;border-radius:6px;border:2px solid #d1d5db;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.chk-row.done .chk-box{border-color:#10b981;background:#10b981;color:#fff}
-.radio-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;margin-bottom:4px;cursor:pointer;border:1.5px solid #e2e8f0}
-.radio-row.sel{border-color:#ef4444;background:#fef2f2}
-.radio-dot{width:20px;height:20px;border-radius:50%;border:2px solid #d1d5db;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.radio-row.sel .radio-dot{border-color:#ef4444;background:#ef4444}
-.radio-row.sel .radio-dot::after{content:"";width:8px;height:8px;border-radius:50%;background:#fff}
 </style>
 </head>
 <body>
@@ -32,399 +22,382 @@ button{font-family:inherit;cursor:pointer}input,textarea,select{font-family:inhe
 (function(){
 "use strict";
 
-var GAS_URL="https://script.google.com/macros/s/AKfycbyWeLwAktSqOqA_jZL5oDZQSXKCrCSxevmCeAqaIfXgX1ID1XWHQ6sbOdqeX91QcsJQ/exec";
+var GAS="https://script.google.com/macros/s/AKfycbyWeLwAktSqOqA_jZL5oDZQSXKCrCSxevmCeAqaIfXgX1ID1XWHQ6sbOdqeX91QcsJQ/exec";
 
 var STAFF=[
-  {id:"s091",name:"柏木幸代",pin:"091",sheet:"柏木"},
-  {id:"s092",name:"園田絵里",pin:"092",sheet:"園田"},
-  {id:"s093",name:"堀内真紀子",pin:"093",sheet:"堀内"}
+  {id:"s091",nm:"柏木幸代",pin:"091",sh:"柏木"},
+  {id:"s092",nm:"園田絵里",pin:"092",sh:"園田"},
+  {id:"s093",nm:"堀内真紀子",pin:"093",sh:"堀内"}
 ];
-var ADMIN_PIN="9999";
 
-/* 新トークスクリプト5ステップ */
-var TALK_STEPS=[
-  {id:"s1",title:"ステップ1：YES取り2回",color:"#3b82f6",icon:"🤝",
-   checks:[
-     {id:"s1a",label:"「〇〇様、私のこと覚えていらっしゃいますか？」"},
-     {id:"s1b",label:"「私の声、今遠くないですか？大丈夫ですか？」"}
-   ],
-   note:"YESを2回取ることで心理的コミットメントを得る"},
-  {id:"s2",title:"ステップ2：ほめる",color:"#10b981",icon:"💐",
-   checks:[
-     {id:"s2a",label:"「ってか、あれですねー ス テ キ な声ですねー」"}
-   ],
-   note:"相手の緊張をほぐし、好意的な関係を構築する"},
-  {id:"s3",title:"ステップ3：目的を聞く",color:"#f59e0b",icon:"🎯",
-   checks:[
-     {id:"s3a",label:"「ちなみに何を叶えていきたいです？」"}
-   ],
-   note:"相手のニーズ・願望を引き出す。ここで深掘りする"},
-  {id:"s4",title:"ステップ4：ビフォーアフター",color:"#8b5cf6",icon:"✨",
-   checks:[
-     {id:"s4a",label:"ビフォーアフターを話す"},
-     {id:"s4b",label:"「そんな状態になったら、ご気分いかがですか？」を聞く"}
-   ],
-   note:"理想の状態をイメージさせ、感情を動かす"},
-  {id:"s5",title:"日程打診",color:"#ef4444",icon:"📅",
-   checks:[
-     {id:"s5a",label:"YESをもらってから打診する"},
-     {id:"s5b",label:"「うちのサービスが1度合うかどうかだけ、是非お話聞いてみて下さい」"}
-   ],
-   note:"YESを確認してから日程を提案。焦らない"}
+var CHECKS=[
+  {id:"c1",step:"S1",label:"「〇〇様、私のこと覚えていらっしゃいますか？」",note:"YES取り①"},
+  {id:"c2",step:"S1",label:"「私の声、今遠くないですか？大丈夫ですか？」",note:"YES取り②"},
+  {id:"c3",step:"S2",label:"「ってか、あれですねー ステキな声ですねー」",note:"ほめる"},
+  {id:"c4",step:"S3",label:"「ちなみに何を叶えていきたいです？」",note:"目的を聞く"},
+  {id:"c5",step:"S4",label:"ビフォーアフターを話した",note:"変化を伝える"},
+  {id:"c6",step:"S4",label:"「そんな状態になったら、ご気分いかがですか？」",note:"感情を動かす"},
+  {id:"c7",step:"日程",label:"YESをもらってから日程打診した",note:"焦らない"},
+  {id:"c8",step:"日程",label:"「うちのサービスが1度合うかどうかだけ、是非お話聞いてみて下さい」",note:"クロージング"}
 ];
-var ALL_CHECKS=[];TALK_STEPS.forEach(function(s){s.checks.forEach(function(c){ALL_CHECKS.push(c.id)})});
 
-var RTYPES=[{id:"appo",l:"アポ獲得",i:"🎯",c:"#10b981"},{id:"cb",l:"再架電",i:"📞",c:"#f59e0b"},{id:"info",l:"資料送付",i:"📨",c:"#3b82f6"},{id:"absent",l:"不在",i:"🚫",c:"#6b7280"},{id:"refused",l:"断り",i:"✋",c:"#ef4444"},{id:"wrong",l:"不通",i:"❌",c:"#9ca3af"},{id:"followup",l:"フォロー",i:"📋",c:"#8b5cf6"},{id:"other",l:"その他",i:"📝",c:"#64748b"}];
+var BOUSOU_OPTS=[
+  {id:"none",label:"暴走なし"},
+  {id:"s1",label:"ステップ1（YES取り）で暴走"},
+  {id:"s2",label:"ステップ2（ほめる）で暴走"},
+  {id:"s3",label:"ステップ3（目的）で暴走"},
+  {id:"s4",label:"ステップ4（BA）で暴走"},
+  {id:"s5",label:"日程打診で暴走"}
+];
 
-function LD(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
-function SV(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+var RESULTS=[
+  {id:"appo",l:"アポ獲得",i:"🎯",c:"#10b981"},
+  {id:"cb",l:"再架電",i:"📞",c:"#f59e0b"},
+  {id:"absent",l:"不在",i:"🚫",c:"#6b7280"},
+  {id:"refused",l:"断り",i:"✋",c:"#ef4444"},
+  {id:"wrong",l:"不通",i:"❌",c:"#9ca3af"},
+  {id:"other",l:"その他",i:"📝",c:"#64748b"}
+];
+
+/* Storage */
+function ld(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
+function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function pad(n){return n<10?"0"+n:""+n}
-function timeNow(){var d=new Date();return pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds())}
-function dateNow(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+function now(){var d=new Date();return pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds())}
+function dateStr(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function dateJP(){var d=new Date();return d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日"}
+function timerStr(s){return pad(Math.floor(s/60))+":"+pad(s%60)}
 
-/* ★ 電話発信：アプリから離脱しない方式 ★
-   tel:リンクは使わない。代わりに番号を大きく表示し、
-   ユーザーがタップしてコピー→電話アプリで発信。
-   または手動でtel:を踏む（自動遷移はしない） */
-function showDialPrompt(number){
-  if(!number)return;
-  var clean=number.replace(/[^\d+\-]/g,"");
-  /* クリップボードにコピー */
-  try{navigator.clipboard.writeText(clean)}catch(e){}
-  /* tel:リンクを新しいタブで開く（元の画面は維持） */
-  var w=window.open("tel:"+clean,"_blank");
-  if(!w){
-    var a=document.createElement("a");a.href="tel:"+clean;a.target="_blank";a.style.display="none";
-    document.body.appendChild(a);a.click();
-    setTimeout(function(){try{document.body.removeChild(a)}catch(e){}},300);
-  }
-}
-
-function gasPost(data){if(!GAS_URL)return;try{fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(data),mode:"no-cors"})}catch(e){}}
-
-function fetchList(staffObj,cb){
-  if(!GAS_URL){if(cb)cb(false);return}
-  fetch(GAS_URL+"?pin="+encodeURIComponent(staffObj.pin)+"&t="+Date.now(),{redirect:"follow"})
-    .then(function(r){return r.text()})
-    .then(function(t){try{var d=JSON.parse(t);if(d&&d.rows&&d.rows.length>0){S.prospects=d.rows;S.colMap=d.cm||{co:0,ph:1,pe:2,ad:3};S.ci=0;S.skipped={};SV("app-list-"+staffObj.id,d.rows);SV("app-cm-"+staffObj.id,d.cm);SV("app-skip-"+staffObj.id,{});if(cb)cb(true,d.rows.length)}else{if(cb)cb(false)}}catch(e){if(cb)cb(false)}})
-    .catch(function(){if(cb)cb(false)})
+function gasPost(data){
+  if(!GAS)return;
+  try{fetch(GAS,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(data),mode:"no-cors"})}catch(e){}
 }
 
 /* State */
-var S={
-  screen:"login",role:null,pin:"",pinErr:"",toast:"",toastTmr:null,loading:false,
-  prospects:[],colMap:null,ci:0,skipped:{},
-  callHist:[],appoHist:[],att:{},
-  /* Call state - new */
-  ck:{},tsec:0,tRef:null,selRes:null,
-  bousou:"none", /* none,s1,s2,s3,s4,s5 */
-  outText:"", /* 切り返しできなかったアウト */
-  memo:"",
-  af:{project:"",company:"",person:"",gender:"男",phone:"",role:"",address:"",datetime:"",email:"",personality:""},
-  showImp:false,impErr:"",adminTarget:null
-};
+var U=null; /* current user object or "admin" */
+var V="login"; /* screen */
+var pin="",pinErr="";
+var rows=[],cm=null,ci=0,skipped={};
+var hist=[],appos=[],att={};
+var ck={},bousou="none",selRes=null;
+var tsec=0,tref=null;
+var toast="",ttmr=null;
+var loading=false;
+var showImp=false,impErr="";
+var af={project:"",company:"",person:"",gender:"男",phone:"",role:"",address:"",datetime:"",email:"",personality:""};
 
-function loadUser(uid){
-  S.prospects=LD("app-list-"+uid)||[];S.colMap=LD("app-cm-"+uid)||null;S.ci=0;S.skipped=LD("app-skip-"+uid)||{};
-  S.callHist=LD("app-calls-"+uid)||[];S.appoHist=LD("app-appos-"+uid)||[];S.att=LD("app-att-"+uid)||{};
+function loadUser(id){
+  rows=ld("l-"+id)||[];cm=ld("c-"+id)||null;ci=0;skipped=ld("sk-"+id)||{};
+  hist=ld("h-"+id)||[];appos=ld("a-"+id)||[];att=ld("at-"+id)||{};
 }
-function gf(row,f){if(!row||!S.colMap||S.colMap[f]<0)return"";return String(row[S.colMap[f]]||"").trim()}
-function today(){return dateNow()}
-function todayCalls(){var uid=S.role&&S.role!=="admin"?S.role.id:"";return S.callHist.filter(function(c){return c.d===today()&&c.uid===uid})}
-function isCalled(i){return todayCalls().some(function(c){return c.pi===i})}
-function isSkipped(i){return S.skipped[i]===true}
-function shouldShow(i){return!isCalled(i)&&!isSkipped(i)}
-function todayAtt(){return S.att[today()]||{}}
-function timerFmt(){return pad(Math.floor(S.tsec/60))+":"+pad(S.tsec%60)}
-function flash(m){S.toast=m;R();clearTimeout(S.toastTmr);S.toastTmr=setTimeout(function(){S.toast="";R()},2500)}
-function goNext(){for(var i=S.ci+1;i<S.prospects.length;i++)if(shouldShow(i)){S.ci=i;return};for(var i=0;i<S.ci;i++)if(shouldShow(i)){S.ci=i;return}}
-function getUpcoming(){var now=new Date(),r=[];S.appoHist.forEach(function(a){if(!a.datetime)return;try{var dt=new Date(a.datetime)}catch(e){return}if(isNaN(dt.getTime()))return;var diff=(dt.getTime()-now.getTime())/(1000*60*60*24);if(diff>=0&&diff<=3)r.push({company:a.company||"",phone:a.phone||"",address:a.address||"",datetime:a.datetime})});return r}
-function checkedCount(){var c=0;ALL_CHECKS.forEach(function(id){if(S.ck[id])c++});return c}
+function gf(row,f){if(!row||!cm||cm[f]<0)return"";return String(row[cm[f]]||"").trim()}
+function td(){return dateStr()}
+function tdc(){return hist.filter(function(c){return c.d===td()&&c.u===(U&&U!=="admin"?U.id:"")})}
+function called(i){return tdc().some(function(c){return c.i===i})}
+function show(i){return!called(i)&&!skipped[i]}
+function todayAtt(){return att[td()]||{}}
+function flash(m){toast=m;D();clearTimeout(ttmr);ttmr=setTimeout(function(){toast="";D()},2500)}
+function goNext(){for(var i=ci+1;i<rows.length;i++)if(show(i)){ci=i;return};for(var i=0;i<ci;i++)if(show(i)){ci=i;return}}
+function upcoming(){var n=new Date(),r=[];appos.forEach(function(a){if(!a.datetime)return;try{var dt=new Date(a.datetime)}catch(e){return}if(isNaN(dt.getTime()))return;var diff=(dt.getTime()-n.getTime())/(1000*60*60*24);if(diff>=0&&diff<=3)r.push(a)});return r}
 
-/* Actions */
+/* Fetch list from Sheets */
+function fetchList(staff,cb){
+  if(!GAS){if(cb)cb(false);return}
+  fetch(GAS+"?pin="+staff.pin+"&t="+Date.now(),{redirect:"follow"})
+  .then(function(r){return r.text()})
+  .then(function(t){
+    try{var d=JSON.parse(t);
+    if(d.rows&&d.rows.length>0){
+      rows=d.rows;cm=d.cm||{co:0,ph:1,pe:2,ad:3};ci=0;skipped={};
+      sv("l-"+staff.id,rows);sv("c-"+staff.id,cm);sv("sk-"+staff.id,{});
+      if(cb)cb(true,rows.length)
+    }else{if(cb)cb(false)}}catch(e){if(cb)cb(false)}
+  }).catch(function(){if(cb)cb(false)})
+}
+
+/* Login */
 function tryLogin(){
-  var p=S.pin;
-  if(p.length===3){var f=null;for(var i=0;i<STAFF.length;i++)if(STAFF[i].pin===p){f=STAFF[i];break}
-    if(f){S.role=f;S.screen="home";S.pin="";S.pinErr="";loadUser(f.id);S.loading=true;R();fetchList(f,function(ok,c){S.loading=false;if(ok)flash("✅ "+c+"件取得");R()});return}}
-  if(p.length===4){
-    if(p===ADMIN_PIN){S.role="admin";S.screen="admin";S.pin="";S.pinErr="";R()}
-    else{S.pinErr="番号が違います";S.pin="";R()}}
+  if(pin.length===3){
+    var f=null;for(var i=0;i<STAFF.length;i++)if(STAFF[i].pin===pin)f=STAFF[i];
+    if(f){U=f;V="home";pin="";pinErr="";loadUser(f.id);loading=true;D();
+      fetchList(f,function(ok,n){loading=false;if(ok)flash("✅ "+n+"件取得");D()});return}
+  }
+  if(pin.length===4){
+    if(pin==="9999"){U="admin";V="admin";pin="";pinErr="";D()}
+    else{pinErr="番号が違います";pin="";D()}
+  }
 }
+
+/* Save call result */
+function saveCall(){
+  if(!selRes)return;
+  var outEl=document.getElementById("outTA");var outText=outEl?outEl.value:"";
+  var memoEl=document.getElementById("memoTA");var memo=memoEl?memoEl.value:"";
+  var cur=rows[ci]||null;
+  var checked=CHECKS.filter(function(c){return ck[c.id]}).length;
+  var resLabel="";for(var i=0;i<RESULTS.length;i++)if(RESULTS[i].id===selRes)resLabel=RESULTS[i].l;
+  var bLabel=bousou==="none"?"なし":bousou;
+
+  var entry={id:Date.now(),u:U.id,co:cur?gf(cur,"co"):"",pe:cur?gf(cur,"pe"):"",ph:cur?gf(cur,"ph"):"",
+    r:selRes,dur:timerStr(tsec),ck:checked+"/"+CHECKS.length,bs:bLabel,out:outText,memo:memo,
+    d:td(),tm:now().slice(0,5),i:ci};
+  hist.unshift(entry);sv("h-"+U.id,hist);
+
+  /* Sync to spreadsheet */
+  gasPost({type:"callResult",name:U.nm,pin:U.pin,sheet:U.sh,
+    date:dateJP(),time:now().slice(0,5),
+    company:cur?gf(cur,"co"):"",phone:cur?gf(cur,"ph"):"",person:cur?gf(cur,"pe"):"",
+    result:resLabel,duration:timerStr(tsec),checkedCount:checked+"/"+CHECKS.length,
+    bousou:bLabel,outText:outText,memo:memo});
+
+  clearInterval(tref);tsec=0;ck={};selRes=null;bousou="none";
+
+  if(entry.r==="appo"){
+    af.company=cur?gf(cur,"co"):"";af.person=cur?gf(cur,"pe"):"";af.phone=cur?gf(cur,"ph"):"";af.address=cur?gf(cur,"ad"):"";
+    V="appo";D()
+  }else{goNext();V="home";flash("✅ 保存→次へ");D()}
+}
+
+/* Punch */
+function punch(type){
+  var t=now(),d=td();if(!att[d])att[d]={};att[d][type]=t;sv("at-"+U.id,att);
+  var lb={ci:"出勤",co:"退勤",bs:"休憩開始",be:"休憩終了"};flash("✅ "+lb[type]+" "+t.slice(0,5));
+  var a=att[d];gasPost({type:"attendance",name:U.nm,pin:U.pin,date:dateJP(),clockIn:a.ci||"",clockOut:a.co||"",breakStart:a.bs||"",breakEnd:a.be||""})
+}
+
+/* Send appo mail */
+function sendAppo(){
+  ["project","company","person","phone","role","address","datetime","email","personality"].forEach(function(f){
+    var el=document.getElementById("af_"+f);if(el)af[f]=el.value});
+  var a=af;
+  var body="アポイント報告\n\n案件名: "+a.project+"\n会社名: "+a.company+"\n担当者: "+a.person+"（"+a.gender+"）\n電話: "+a.phone+"\n役職: "+a.role+"\n住所: "+a.address+"\nアポ日時: "+a.datetime+"\nメール: "+a.email+"\n人柄: "+a.personality+"\n\n報告者: "+U.nm;
+  var subj="【アポ報告】"+a.company+" "+a.person+"様 - "+U.nm;
+  appos.unshift({project:a.project,company:a.company,person:a.person,gender:a.gender,phone:a.phone,role:a.role,address:a.address,datetime:a.datetime,email:a.email,personality:a.personality,id:Date.now(),reporter:U.nm,date:td()});
+  sv("a-"+U.id,appos);
+  window.location.href="mailto:a.kusunoki@sukimagroup.jp?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(body);
+  setTimeout(function(){af={project:"",company:"",person:"",gender:"男",phone:"",role:"",address:"",datetime:"",email:"",personality:""};goNext();V="home";flash("✅ 送信完了");D()},1500)
+}
+
+/* Import CSV */
 function doImport(){
-  var ta=document.getElementById("impTA");var val=ta?ta.value:"";
-  if(!val.trim()){S.impErr="テキストが空です";R();return}
-  /* Simple CSV parse */
-  var text=val.replace(/^\uFEFF/,"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
-  var lines=text.split("\n").filter(function(l){return l.trim()});if(lines.length<1){S.impErr="データが空";R();return}
+  var ta=document.getElementById("impTA");if(!ta||!ta.value.trim()){impErr="テキストが空です";D();return}
+  var text=ta.value.replace(/^\uFEFF/,"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  var lines=text.split("\n").filter(function(l){return l.trim()});if(!lines.length){impErr="空です";D();return}
   var sep="\t";if(lines[0].indexOf("\t")<0)sep=lines[0].indexOf(",")>=0?",":"SP";
   function sp(l){if(sep==="\t")return l.split("\t").map(function(c){return c.trim()});if(sep===","){var r=[],cur="",q=false;for(var i=0;i<l.length;i++){var ch=l[i];if(ch==='"')q=!q;else if(ch===","&&!q){r.push(cur.trim());cur=""}else cur+=ch}r.push(cur.trim());return r}return l.split(/\s{2,}/).map(function(c){return c.trim()})}
-  var all=lines.map(sp);
-  var hK=["施設","会社","法人","名称","名前","電話","tel","番号","担当","氏名","住所","company","name"];
-  var fl=all[0].join("").toLowerCase();var isH=false;for(var k=0;k<hK.length;k++){if(fl.indexOf(hK[k])>=0){isH=true;break}}
-  var hasP=false;for(var j=0;j<all[0].length;j++){if(/^\d{2,4}[\-\d]{4,}/.test(all[0][j])){hasP=true;break}}if(hasP)isH=false;
-  var data,cm;
-  if(isH&&all.length>=2){data=all.slice(1);var hl=all[0].map(function(h){return(h||"").toLowerCase()});function fc(ps){for(var i=0;i<hl.length;i++)for(var j=0;j<ps.length;j++)if(hl[i].indexOf(ps[j])>=0)return i;return-1}cm={co:fc(["施設","会社","法人","名称","名前","company","name"]),ph:fc(["電話","tel","番号","連絡"]),pe:fc(["担当","氏名","施設長"]),ad:fc(["住所","所在地"])}}
-  else{data=all;var nc=all[0].length;if(nc<=1)cm={co:0,ph:-1,pe:-1,ad:-1};else if(nc===2)cm={co:0,ph:1,pe:-1,ad:-1};else if(nc===3)cm={co:0,ph:1,pe:2,ad:-1};else cm={co:0,ph:1,pe:2,ad:3}}
+  var all=lines.map(sp);var fl=all[0].join("").toLowerCase();
+  var isH=["施設","会社","電話","tel","番号","担当","住所","company","name"].some(function(k){return fl.indexOf(k)>=0});
+  if(all[0].some(function(c){return/^\d{2,4}[\-\d]{4,}/.test(c)}))isH=false;
+  var data,newCm;
+  if(isH&&all.length>=2){data=all.slice(1);var hl=all[0].map(function(h){return(h||"").toLowerCase()});function fc(ps){for(var i=0;i<hl.length;i++)for(var j=0;j<ps.length;j++)if(hl[i].indexOf(ps[j])>=0)return i;return-1}newCm={co:fc(["施設","会社","法人","名称","名前","company","name"]),ph:fc(["電話","tel","番号","連絡"]),pe:fc(["担当","氏名","施設長"]),ad:fc(["住所","所在地"])}}
+  else{data=all;var nc=all[0].length;newCm=nc<=1?{co:0,ph:-1,pe:-1,ad:-1}:nc===2?{co:0,ph:1,pe:-1,ad:-1}:nc===3?{co:0,ph:1,pe:2,ad:-1}:{co:0,ph:1,pe:2,ad:3}}
   data=data.filter(function(r){return r.some(function(c){return c&&c.trim()})});
-  if(!data.length){S.impErr="データ0件";R();return}
-  var uid=S.role==="admin"&&S.adminTarget?S.adminTarget:S.role&&S.role!=="admin"?S.role.id:null;
-  if(!uid){S.impErr="ユーザー未選択";R();return}
-  SV("app-list-"+uid,data);SV("app-cm-"+uid,cm);
-  if(S.role!=="admin"&&S.role.id===uid){S.prospects=data;S.colMap=cm;S.ci=0;S.skipped={};SV("app-skip-"+uid,{})}
-  S.showImp=false;S.impErr="";
-  var sn="";for(var i=0;i<STAFF.length;i++)if(STAFF[i].id===uid)sn=STAFF[i].name;
+  if(!data.length){impErr="データ0件";D();return}
+  var uid=U==="admin"?document.getElementById("tgtSel")?.value:U.id;
+  if(!uid){impErr="ユーザー未選択";D();return}
+  sv("l-"+uid,data);sv("c-"+uid,newCm);
+  if(U!=="admin"&&U.id===uid){rows=data;cm=newCm;ci=0;skipped={};sv("sk-"+uid,{})}
+  showImp=false;impErr="";
+  var sn="";STAFF.forEach(function(s){if(s.id===uid)sn=s.nm});
   flash("✅ "+sn+"に"+data.length+"件読込")
-}
-function doSkip(){S.skipped[S.ci]=true;SV("app-skip-"+S.role.id,S.skipped);flash("⏭ スキップ");goNext();R()}
-function undoSkips(){S.skipped={};SV("app-skip-"+S.role.id,{});flash("全解除");R()}
-function doPunch(type){
-  var t=timeNow(),d=today();if(!S.att[d])S.att[d]={};S.att[d][type]=t;SV("app-att-"+S.role.id,S.att);
-  var lb={ci:"出勤",co:"退勤",bs:"休憩開始",be:"休憩終了"};flash("✅ "+lb[type]+" "+t.slice(0,5));
-  var a=S.att[d];gasPost({type:"attendance",name:S.role.name,pin:S.role.pin,date:dateJP(),clockIn:a.ci||"",clockOut:a.co||"",breakStart:a.bs||"",breakEnd:a.be||""})
-}
-function startCall(){
-  S.ck={};S.tsec=0;S.selRes=null;S.bousou="none";S.outText="";S.memo="";
-  clearInterval(S.tRef);S.tRef=setInterval(function(){S.tsec++;var el=document.getElementById("tmr");if(el)el.textContent=timerFmt()},1000);
-  S.screen="call";R();
-  /* ★ 自動発信しない → ユーザーが番号タップで手動発信 ★ */
-}
-function stopTimer(){clearInterval(S.tRef)}
-
-function saveResult(){
-  if(!S.selRes)return;
-  /* DOMから値を読む */
-  var outEl=document.getElementById("outTA");if(outEl)S.outText=outEl.value;
-  var memoEl=document.getElementById("memoTA");if(memoEl)S.memo=memoEl.value;
-  var cur=S.prospects[S.ci]||null;
-  var checkedSteps={};TALK_STEPS.forEach(function(st){var done=st.checks.filter(function(c){return S.ck[c.id]}).length;checkedSteps[st.id]=done+"/"+st.checks.length});
-  var entry={id:Date.now(),uid:S.role.id,co:cur?gf(cur,"co"):"—",pe:cur?gf(cur,"pe"):"—",ph:cur?gf(cur,"ph"):"",r:S.selRes,dur:timerFmt(),steps:checkedSteps,bousou:S.bousou,outText:S.outText,memo:S.memo,d:today(),tm:timeNow().slice(0,5),pi:S.ci};
-  S.callHist.unshift(entry);SV("app-calls-"+S.role.id,S.callHist);
-  /* ★ スプレッドシートに結果を書き戻す ★ */
-  var resLabel="";for(var i=0;i<RTYPES.length;i++)if(RTYPES[i].id===S.selRes){resLabel=RTYPES[i].l;break}
-  var bousouLabel=S.bousou==="none"?"なし":S.bousou;
-  gasPost({
-    type:"callResult",
-    name:S.role.name,pin:S.role.pin,sheet:S.role.sheet,
-    date:dateJP(),time:timeNow().slice(0,5),
-    company:cur?gf(cur,"co"):"",phone:cur?gf(cur,"ph"):"",person:cur?gf(cur,"pe"):"",
-    result:resLabel,duration:timerFmt(),
-    checkedCount:checkedCount()+"/"+ALL_CHECKS.length,
-    bousou:bousouLabel,outText:S.outText,memo:S.memo
-  });
-  stopTimer();S.tsec=0;S.ck={};S.selRes=null;S.bousou="none";S.outText="";S.memo="";
-  if(entry.r==="appo"){
-    S.af.company=cur?gf(cur,"co"):"";S.af.person=cur?gf(cur,"pe"):"";S.af.phone=cur?gf(cur,"ph"):"";S.af.address=cur?gf(cur,"ad"):"";
-    S.screen="appo_form";R()
-  }else{goNext();S.screen="home";flash("✅ 保存→次へ");R()}
-}
-
-function sendAppo(){
-  ["project","company","person","phone","role","address","datetime","email","personality"].forEach(function(f){var el=document.getElementById("af_"+f);if(el)S.af[f]=el.value});
-  var a=S.af;var body="アポイント報告\n\n案件名: "+a.project+"\n会社名: "+a.company+"\n担当者: "+a.person+"（"+a.gender+"）\n電話: "+a.phone+"\n役職: "+a.role+"\n住所: "+a.address+"\nアポ日時: "+a.datetime+"\nメール: "+a.email+"\n人柄: "+a.personality+"\n\n報告者: "+S.role.name;
-  var subj="【アポ報告】"+a.company+" "+a.person+"様 - "+S.role.name;
-  S.appoHist.unshift({project:a.project,company:a.company,person:a.person,gender:a.gender,phone:a.phone,role:a.role,address:a.address,datetime:a.datetime,email:a.email,personality:a.personality,id:Date.now(),reporter:S.role.name,date:today()});
-  SV("app-appos-"+S.role.id,S.appoHist);
-  window.location.href="mailto:a.kusunoki@sukimagroup.jp?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(body);
-  setTimeout(function(){S.af={project:"",company:"",person:"",gender:"男",phone:"",role:"",address:"",datetime:"",email:"",personality:""};goNext();S.screen="home";flash("✅ 送信完了");R()},1500)
 }
 
 /* ===== RENDER ===== */
-function R(){
+function D(){
 try{
-var root=document.getElementById("root"),h="",isAdmin=S.role==="admin";
-if(S.toast)h+='<div style="position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:700;z-index:999">'+S.toast+'</div>';
+var root=document.getElementById("root"),h="",isA=U==="admin",cur=rows[ci]||null;
+if(toast)h+='<div style="position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:700;z-index:999">'+toast+'</div>';
 
-/* LOGIN */
-if(S.screen==="login"){
-  h+='<div style="min-height:100vh;background:linear-gradient(135deg,#0d1b2a,#1a237e);display:flex;align-items:center;justify-content:center;padding:20px"><div style="background:#fff;border-radius:18px;padding:28px 24px;max-width:340px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25)"><div style="text-align:center;margin-bottom:18px"><div style="font-size:36px">📞</div><div style="font-size:18px;font-weight:800;color:#1a237e">川嶋メソッド</div><div style="font-size:9px;color:#90a4ae;letter-spacing:2px">テレアポ統合管理</div></div><div style="text-align:center;font-size:13px;color:#455a64;margin-bottom:12px">従業員番号を入力</div><div style="display:flex;justify-content:center;gap:8px;margin-bottom:12px">';
-  for(var i=0;i<4;i++){var f=S.pin.length>i;h+='<div style="width:44px;height:52px;border-radius:12px;border:2px solid '+(f?"#1a237e":"#e0e0e0")+';background:'+(f?"#e8eaf6":"#fafafa")+';display:flex;align-items:center;justify-content:center;font-size:22px;color:#1a237e">'+(f?"●":"")+'</div>'}
+/* ===== LOGIN ===== */
+if(V==="login"){
+  h+='<div style="min-height:100vh;background:linear-gradient(135deg,#0d1b2a,#1a237e);display:flex;align-items:center;justify-content:center;padding:20px"><div style="background:#fff;border-radius:18px;padding:28px 24px;max-width:340px;width:100%"><div style="text-align:center;margin-bottom:18px"><div style="font-size:36px">📞</div><div style="font-size:18px;font-weight:800;color:#1a237e">川嶋メソッド</div></div><div style="text-align:center;font-size:13px;color:#455a64;margin-bottom:12px">従業員番号を入力</div><div style="display:flex;justify-content:center;gap:8px;margin-bottom:12px">';
+  for(var i=0;i<4;i++){var f=pin.length>i;h+='<div style="width:44px;height:52px;border-radius:12px;border:2px solid '+(f?"#1a237e":"#e0e0e0")+';background:'+(f?"#e8eaf6":"#fafafa")+';display:flex;align-items:center;justify-content:center;font-size:22px;color:#1a237e">'+(f?"●":"")+'</div>'}
   h+='</div><div id="pp" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;max-width:200px;margin:0 auto 12px"></div>';
-  if(S.pinErr)h+='<div style="text-align:center;font-size:12px;color:#e53935;font-weight:700">'+S.pinErr+'</div>';
+  if(pinErr)h+='<div style="text-align:center;font-size:12px;color:#e53935;font-weight:700">'+pinErr+'</div>';
   h+='</div></div>';root.innerHTML=h;
   var pp=document.getElementById("pp");
-  [1,2,3,4,5,6,7,8,9,null,0,"DEL"].forEach(function(n){var b=document.createElement("button");b.style.cssText="height:48px;border-radius:10px;font-size:"+(n==="DEL"?"14":"20")+"px;border:1.5px solid #e0e0e0;background:#fff;color:#1a237e;font-family:inherit";if(n===null){b.style.visibility="hidden";b.textContent=" "}else{b.textContent=n==="DEL"?"⌫":n;b.onclick=function(){if(n==="DEL"){S.pin=S.pin.slice(0,-1);S.pinErr="";R();return}if(S.pin.length>=4)return;S.pin+=String(n);S.pinErr="";R();tryLogin()}}pp.appendChild(b)});return;
-}
+  [1,2,3,4,5,6,7,8,9,null,0,"D"].forEach(function(n){var b=document.createElement("button");b.style.cssText="height:48px;border-radius:10px;font-size:"+(n==="D"?"14":"20")+"px;border:1.5px solid #e0e0e0;background:#fff;color:#1a237e;font-family:inherit";if(n===null){b.style.visibility="hidden";b.textContent=" "}else{b.textContent=n==="D"?"⌫":n;b.onclick=function(){if(n==="D"){pin=pin.slice(0,-1);pinErr="";D();return}if(pin.length>=4)return;pin+=String(n);pinErr="";D();tryLogin()}}pp.appendChild(b)});return}
 
 /* Header */
-h+='<header style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:50"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">📞</span><div><div style="font-size:12px;font-weight:800">川嶋メソッド</div><div style="font-size:10px;color:#64748b">'+(isAdmin?"🔒管理者":S.role.name)+'</div></div></div>';
-if(S.screen==="call")h+='<div style="display:flex;align-items:center;gap:4px;background:#ecfdf5;padding:4px 8px;border-radius:12px"><span id="tmr" style="font-size:14px;font-weight:800;color:#059669;font-family:monospace">'+timerFmt()+'</span></div>';
-h+='<button id="lo" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">ログアウト</button></header>';
+h+='<header style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:50"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:16px">📞</span><div style="font-size:12px;font-weight:800">'+(isA?"🔒管理者":U.nm)+'</div></div>';
+if(V==="call")h+='<span id="tmr" style="font-size:14px;font-weight:800;color:#059669;font-family:monospace">'+timerStr(tsec)+'</span>';
+h+='<button id="lo" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px">ログアウト</button></header>';
 
 /* Ticker */
-if(!isAdmin&&S.role&&S.screen==="home"){var up=getUpcoming();if(up.length>0){var tt="";up.forEach(function(u){var dt=new Date(u.datetime);var ds=(dt.getMonth()+1)+"/"+dt.getDate()+" "+pad(dt.getHours())+":"+pad(dt.getMinutes());tt+="🔔 おいでん！"+ds+"　"+u.company+"　📞"+u.phone+"　"+u.address+"　　　"});h+='<div class="ticker"><span>'+tt+'</span></div>'}}
+if(!isA&&V==="home"){var up=upcoming();if(up.length){var tt="";up.forEach(function(u){var dt=new Date(u.datetime);tt+="🔔 おいでん！"+(dt.getMonth()+1)+"/"+dt.getDate()+" "+pad(dt.getHours())+":"+pad(dt.getMinutes())+"　"+(u.company||"")+"　📞"+(u.phone||"")+"　"+(u.address||"")+"　　　"});h+='<div class="ticker"><span>'+tt+'</span></div>'}}
 
-if(S.loading){h+='<main style="padding:40px;text-align:center;color:#94a3b8"><div style="font-size:24px;margin-bottom:12px">📡</div>スプレッドシートから取得中...</main>';root.innerHTML=h;document.getElementById("lo").onclick=function(){S.role=null;S.screen="login";S.pin="";S.loading=false;R()};return}
+if(loading){h+='<main style="padding:40px;text-align:center;color:#94a3b8">📡 取得中...</main>';root.innerHTML=h;document.getElementById("lo").onclick=function(){U=null;V="login";pin="";loading=false;D()};return}
 
 /* Import modal */
-if(S.showImp){
-  var tn="";if(S.adminTarget)for(var i=0;i<STAFF.length;i++)if(STAFF[i].id===S.adminTarget)tn=STAFF[i].name;
-  if(!isAdmin&&S.role)tn=S.role.name;
-  h+='<div id="ib" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center"><div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()"><div style="display:flex;justify-content:space-between;padding:16px;border-bottom:1px solid #e2e8f0"><span style="font-size:16px;font-weight:800">📋 '+tn+'</span><button id="cib" style="font-size:22px;color:#94a3b8;background:none;border:none;cursor:pointer">✕</button></div><div style="padding:16px">';
-  if(isAdmin){h+='<select id="ts" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:10px">';STAFF.forEach(function(s){h+='<option value="'+s.id+'"'+(S.adminTarget===s.id?" selected":"")+'>'+s.name+'</option>'});h+='</select>'}
-  h+='<textarea id="impTA" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;background:#f8fafc;resize:vertical;box-sizing:border-box;font-size:13px" rows="8" placeholder="スプレッドシートの内容を貼り付け"></textarea><button id="imb" style="width:100%;margin-top:8px;padding:12px;border:none;border-radius:12px;background:#3b82f6;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">📥 読み込む</button>';
-  if(S.impErr)h+='<div style="margin-top:8px;padding:10px;background:#fef2f2;border-radius:8px;font-size:12px;color:#dc2626">'+S.impErr+'</div>';
-  h+='</div></div></div>';
-}
+if(showImp){
+  h+='<div id="ib" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center"><div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()"><div style="padding:16px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between"><b>📋 リスト読込</b><button id="cib" style="font-size:20px;color:#94a3b8;background:none;border:none">✕</button></div><div style="padding:16px">';
+  if(isA){h+='<select id="tgtSel" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:10px;font-family:inherit">';STAFF.forEach(function(s){h+='<option value="'+s.id+'">'+s.nm+'</option>'});h+='</select>'}
+  h+='<textarea id="impTA" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;background:#f8fafc;box-sizing:border-box;font-size:13px;resize:vertical" rows="8" placeholder="スプレッドシートの内容を貼り付け"></textarea>';
+  h+='<button id="imb" style="width:100%;margin-top:8px;padding:12px;border:none;border-radius:12px;background:#3b82f6;color:#fff;font-size:14px;font-weight:700;font-family:inherit">📥 読み込む</button>';
+  if(impErr)h+='<div style="margin-top:8px;padding:8px;background:#fef2f2;border-radius:8px;font-size:12px;color:#dc2626">'+impErr+'</div>';
+  h+='</div></div></div>'}
 
 h+='<main style="flex:1;overflow-y:auto;padding:10px">';
 
 /* ===== ADMIN ===== */
-if(S.screen==="admin"){
-  h+='<div style="font-size:18px;font-weight:800;color:#1a237e;margin-bottom:4px">🔒 管理者</div>';
-  h+='<div style="font-size:11px;color:#64748b;margin-bottom:12px;padding:8px;background:#eff6ff;border-radius:8px;line-height:1.6">スプレッドシートのタブ（柏木/園田/堀内）にリスト入力 → ログイン時に自動反映</div>';
+if(V==="admin"){
+  h+='<div style="font-size:16px;font-weight:800;color:#1a237e;margin-bottom:10px">管理者ダッシュボード</div>';
   STAFF.forEach(function(s){
-    var list=LD("app-list-"+s.id)||[];var calls=LD("app-calls-"+s.id)||[];var appos=LD("app-appos-"+s.id)||[];var at=LD("app-att-"+s.id)||{};var ta=at[today()]||{};var tC=calls.filter(function(c){return c.d===today()});var tA=tC.filter(function(c){return c.r==="appo"}).length;
-    h+='<div style="background:#fff;border-radius:14px;padding:14px;border:1px solid #e2e8f0;margin-bottom:10px;border-left:4px solid '+(ta.ci&&!ta.co?"#10b981":ta.co?"#5c6bc0":"#78909c")+'">';
-    h+='<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:16px;font-weight:800;color:#1a237e">'+s.name+'</span><span style="font-size:11px;color:#94a3b8">'+s.pin+' / '+s.sheet+'</span></div>';
-    h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">';
-    [[list.length,"リスト","#3b82f6"],[tC.length,"架電","#3b82f6"],[tA,"アポ","#10b981"],[appos.length,"累計","#f59e0b"]].forEach(function(k){h+='<div style="text-align:center;background:#f1f5f9;border-radius:8px;padding:6px"><div style="font-size:9px;color:#64748b">'+k[1]+'</div><div style="font-size:16px;font-weight:800;color:'+k[2]+'">'+k[0]+'</div></div>'});
-    h+='</div><div style="font-size:11px;color:#64748b;margin-bottom:6px">出勤:<b>'+(ta.ci?ta.ci.slice(0,5):"—")+'</b> 退勤:<b>'+(ta.co?ta.co.slice(0,5):"—")+'</b></div>';
-    h+='<button data-ld="'+s.id+'" style="width:100%;padding:10px;border:2px solid #3b82f6;border-radius:10px;background:#eff6ff;color:#3b82f6;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">📋 手動リスト読込</button></div>';
+    var li=ld("l-"+s.id)||[],cl=ld("h-"+s.id)||[],ap=ld("a-"+s.id)||[],at=ld("at-"+s.id)||{},ta=at[td()]||{};
+    var tC=cl.filter(function(c){return c.d===td()});var tA=tC.filter(function(c){return c.r==="appo"}).length;
+    h+='<div style="background:#fff;border-radius:12px;padding:12px;border:1px solid #e2e8f0;margin-bottom:8px;border-left:4px solid '+(ta.ci&&!ta.co?"#10b981":"#78909c")+'">';
+    h+='<div style="display:flex;justify-content:space-between;margin-bottom:6px"><b style="color:#1a237e">'+s.nm+'</b><span style="font-size:11px;color:#94a3b8">'+s.pin+'/'+s.sh+'</span></div>';
+    h+='<div style="display:flex;gap:8px;font-size:12px;color:#64748b;margin-bottom:6px"><span>リスト:'+li.length+'</span><span>架電:'+tC.length+'</span><span style="color:#10b981">アポ:'+tA+'</span><span>累計:'+ap.length+'</span></div>';
+    h+='<div style="font-size:11px;color:#64748b;margin-bottom:6px">出勤:'+(ta.ci?ta.ci.slice(0,5):"—")+' 退勤:'+(ta.co?ta.co.slice(0,5):"—")+'</div>';
+    h+='<button data-ld="'+s.id+'" style="width:100%;padding:8px;border:1.5px solid #3b82f6;border-radius:8px;background:#eff6ff;color:#3b82f6;font-size:12px;font-weight:700;font-family:inherit">📋 手動リスト読込</button></div>';
   });
 }
 
 /* ===== HOME ===== */
-else if(S.screen==="home"&&!isAdmin){
-  var att=todayAtt(),tc=todayCalls(),tdA=tc.filter(function(c){return c.r==="appo"}).length,cur=S.prospects[S.ci]||null;
-  var skC=Object.keys(S.skipped).filter(function(k){return S.skipped[k]}).length;
+else if(V==="home"&&!isA){
+  var at=todayAtt(),tc=tdc(),tdA=tc.filter(function(c){return c.r==="appo"}).length;
+  var skC=Object.keys(skipped).filter(function(k){return skipped[k]}).length;
   /* Attendance */
-  h+='<div style="background:#fff;border-radius:14px;padding:14px;border:1px solid #e2e8f0;margin-bottom:8px;border-left:4px solid '+(att.ci&&!att.co?"#10b981":att.co?"#5c6bc0":"#78909c")+'"><div style="font-size:12px;font-weight:800;color:#1a237e;margin-bottom:6px">⏱ 勤怠 — '+dateJP()+'</div><div style="display:flex;gap:6px;font-size:11px;color:#64748b;margin-bottom:6px;flex-wrap:wrap"><span>出勤:<b>'+(att.ci?att.ci.slice(0,5):"—")+'</b></span><span>退勤:<b>'+(att.co?att.co.slice(0,5):"—")+'</b></span><span>休憩:<b>'+(att.bs?att.bs.slice(0,5):"—")+'</b>〜<b>'+(att.be?att.be.slice(0,5):"—")+'</b></span></div><div id="ab" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px"></div></div>';
+  h+='<div style="background:#fff;border-radius:12px;padding:12px;border:1px solid #e2e8f0;margin-bottom:8px"><div style="font-size:12px;font-weight:800;color:#1a237e;margin-bottom:4px">⏱ '+dateJP()+'</div><div style="display:flex;gap:6px;font-size:11px;color:#64748b;margin-bottom:6px"><span>出勤:'+(at.ci?at.ci.slice(0,5):"—")+'</span><span>退勤:'+(at.co?at.co.slice(0,5):"—")+'</span><span>休憩:'+(at.bs?at.bs.slice(0,5):"—")+'〜'+(at.be?at.be.slice(0,5):"—")+'</span></div><div id="atb" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px"></div></div>';
   /* KPI */
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">';
-  [[tc.length,"本日架電","#3b82f6"],[tdA,"本日アポ","#10b981"],[S.appoHist.length,"累計アポ","#f59e0b"]].forEach(function(k){h+='<div style="background:#fff;border-radius:12px;padding:12px;text-align:center;border:1px solid #e2e8f0"><div style="font-size:22px;font-weight:800;color:'+k[2]+'">'+k[0]+'</div><div style="font-size:10px;color:#64748b">'+k[1]+'</div></div>'});h+='</div>';
+  h+='<div style="display:flex;gap:6px;margin-bottom:8px">';
+  [[tc.length,"架電","#3b82f6"],[tdA,"アポ","#10b981"],[appos.length,"累計","#f59e0b"]].forEach(function(k){h+='<div style="flex:1;background:#fff;border-radius:10px;padding:10px;text-align:center;border:1px solid #e2e8f0"><div style="font-size:20px;font-weight:800;color:'+k[2]+'">'+k[0]+'</div><div style="font-size:10px;color:#64748b">'+k[1]+'</div></div>'});h+='</div>';
   /* Call card */
-  if(S.prospects.length>0&&cur){
-    var cSk=isSkipped(S.ci);
-    h+='<div style="background:#fff;border-radius:14px;padding:14px;border:2px solid '+(cSk?"#f59e0b":"#3b82f6")+';margin-bottom:8px">';
+  if(rows.length>0&&cur){
+    var cSk=skipped[ci];var phone=gf(cur,"ph");
+    h+='<div style="background:#fff;border-radius:12px;padding:14px;border:2px solid '+(cSk?"#f59e0b":"#3b82f6")+';margin-bottom:8px">';
     if(cSk)h+='<div style="background:#fef3c7;padding:4px 8px;border-radius:6px;font-size:11px;color:#92400e;margin-bottom:6px;font-weight:700">⏭ スキップ済み</div>';
-    h+='<div style="font-size:11px;color:#94a3b8">架電先 ('+(S.ci+1)+'/'+S.prospects.length+')'+(skC>0?' ・スキップ'+skC+'件':'')+'</div>';
-    h+='<div style="font-size:17px;font-weight:800;margin-top:2px">'+(gf(cur,"co")||"行"+(S.ci+1))+'</div>';
-    /* ★ 電話番号を大きく表示（タップで発信） ★ */
-    var phone=gf(cur,"ph");
-    if(phone)h+='<div id="dialBtn" style="margin-top:8px;padding:14px;background:#eff6ff;border:2px solid #3b82f6;border-radius:12px;text-align:center;cursor:pointer"><div style="font-size:24px;font-weight:800;color:#3b82f6;letter-spacing:2px">📞 '+phone+'</div><div style="font-size:10px;color:#94a3b8;margin-top:4px">タップして発信（アプリに戻ってきてください）</div></div>';
-    if(gf(cur,"pe"))h+='<div style="font-size:13px;color:#64748b;margin-top:6px">👤 '+gf(cur,"pe")+'</div>';
-    if(!cSk)h+='<button id="sc" style="display:block;width:100%;padding:15px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:52px;cursor:pointer;background:linear-gradient(135deg,#10b981,#059669);margin-top:8px;font-family:inherit">📋 架電チェックリスト開始</button>';
-    h+='<div style="display:flex;gap:6px;margin-top:6px"><button id="pv" style="flex:1;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#64748b;font-size:12px;font-weight:600;text-align:center;cursor:pointer;font-family:inherit;opacity:'+(S.ci>0?1:.3)+'">← 前</button><button id="sk" style="flex:1;padding:8px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;color:#92400e;font-size:12px;font-weight:700;text-align:center;cursor:pointer;font-family:inherit">⏭ スキップ</button><button id="nx" style="flex:1;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#64748b;font-size:12px;font-weight:600;text-align:center;cursor:pointer;font-family:inherit;opacity:'+(S.ci<S.prospects.length-1?1:.3)+'">次 →</button></div>';
-    if(skC>0)h+='<button id="us" style="width:100%;margin-top:4px;padding:6px;border:none;border-radius:6px;background:#f1f5f9;color:#94a3b8;font-size:11px;cursor:pointer;font-family:inherit">スキップ全解除('+skC+')</button>';
+    h+='<div style="font-size:11px;color:#94a3b8">架電先 ('+(ci+1)+'/'+rows.length+')'+(skC>0?' ・スキップ'+skC:'')+'</div>';
+    h+='<div style="font-size:17px;font-weight:800;margin-top:2px">'+(gf(cur,"co")||"行"+(ci+1))+'</div>';
+    if(gf(cur,"pe"))h+='<div style="font-size:13px;color:#64748b;margin-top:2px">👤 '+gf(cur,"pe")+'</div>';
+    /* ★ 電話番号 = 普通のaタグリンク（アプリから離脱しない） ★ */
+    if(phone)h+='<a href="tel:'+phone.replace(/[^\d+\-]/g,"")+'" style="display:block;margin-top:8px;padding:14px;background:#eff6ff;border:2px solid #3b82f6;border-radius:12px;text-align:center;text-decoration:none"><span style="font-size:24px;font-weight:800;color:#3b82f6;letter-spacing:2px">📞 '+phone+'</span><br><span style="font-size:10px;color:#94a3b8">タップで発信 → 通話後に戻って結果入力</span></a>';
+    if(!cSk)h+='<button id="sc" style="display:block;width:100%;padding:14px;border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:800;background:linear-gradient(135deg,#10b981,#059669);margin-top:8px;font-family:inherit">📋 チェックリスト・結果入力</button>';
+    h+='<div style="display:flex;gap:6px;margin-top:6px">';
+    h+='<button id="pv" style="flex:1;padding:7px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#64748b;font-size:12px;font-family:inherit;opacity:'+(ci>0?1:.3)+'">← 前</button>';
+    h+='<button id="sk" style="flex:1;padding:7px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;color:#92400e;font-size:12px;font-weight:700;font-family:inherit">⏭ スキップ</button>';
+    h+='<button id="nx" style="flex:1;padding:7px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#64748b;font-size:12px;font-family:inherit;opacity:'+(ci<rows.length-1?1:.3)+'">次 →</button></div>';
+    if(skC>0)h+='<button id="us" style="width:100%;margin-top:4px;padding:5px;border:none;background:#f1f5f9;color:#94a3b8;font-size:11px;border-radius:6px;font-family:inherit">全解除('+skC+')</button>';
     h+='</div>';
   }else{
-    h+='<div style="background:#fff;border-radius:14px;padding:20px;border:1px solid #e2e8f0;margin-bottom:8px;text-align:center;color:#94a3b8"><div style="font-size:40px;margin-bottom:8px">📋</div>架電リストがありません<br><button id="rf" style="margin-top:10px;padding:10px 20px;border:2px solid #3b82f6;border-radius:10px;background:#eff6ff;color:#3b82f6;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🔄 再取得</button></div>';
+    h+='<div style="background:#fff;border-radius:12px;padding:20px;border:1px solid #e2e8f0;margin-bottom:8px;text-align:center;color:#94a3b8"><div style="font-size:36px;margin-bottom:8px">📋</div>架電リストなし<br><button id="rf" style="margin-top:8px;padding:8px 16px;border:1.5px solid #3b82f6;border-radius:8px;background:#eff6ff;color:#3b82f6;font-size:12px;font-weight:700;font-family:inherit">🔄 再取得</button></div>';
   }
-  h+='<div id="mb" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>';
+  /* Menu */
+  h+='<div style="display:flex;gap:6px">';
+  var unc=rows.filter(function(_,i){return show(i)}).length;
+  h+='<button id="ml" style="flex:1;padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;font-size:13px;font-weight:700;text-align:left;font-family:inherit">📑 リスト<br><span style="font-size:10px;color:#94a3b8">残'+unc+'</span></button>';
+  h+='<button id="ma" style="flex:1;padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;font-size:13px;font-weight:700;text-align:left;font-family:inherit">🎯 アポ履歴<br><span style="font-size:10px;color:#94a3b8">'+appos.length+'件</span></button></div>';
 }
 
-/* ===== CALL (チェックリスト画面) ===== */
-else if(S.screen==="call"){
-  var cur=S.prospects[S.ci]||null;
+/* ===== CALL CHECKLIST ===== */
+else if(V==="call"){
   var phone=cur?gf(cur,"ph"):"";
-  h+='<div style="padding:10px 14px;background:#fff;border-bottom:1px solid #e2e8f0"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:800">'+(cur?gf(cur,"co"):"—")+'</span><span style="font-size:12px;font-weight:700;color:#059669;font-family:monospace">'+checkedCount()+'/'+ALL_CHECKS.length+'</span></div>';
-  if(phone)h+='<div id="dialBtn2" style="margin-top:4px;padding:8px;background:#eff6ff;border-radius:8px;text-align:center;cursor:pointer"><span style="font-size:16px;font-weight:800;color:#3b82f6">📞 '+phone+'</span><span style="font-size:10px;color:#94a3b8;margin-left:8px">タップで発信</span></div>';
+  h+='<div style="padding:10px 14px;background:#fff;border-bottom:1px solid #e2e8f0"><div style="font-size:14px;font-weight:800">'+(cur?gf(cur,"co"):"—")+'</div>';
+  if(phone)h+='<a href="tel:'+phone.replace(/[^\d+\-]/g,"")+'" style="display:inline-block;margin-top:4px;padding:6px 12px;background:#eff6ff;border-radius:8px;text-decoration:none"><span style="font-size:15px;font-weight:800;color:#3b82f6">📞 '+phone+'</span></a>';
   h+='</div>';
 
-  /* 5ステップチェックリスト */
   h+='<div style="padding:10px 14px;overflow-y:auto">';
-  TALK_STEPS.forEach(function(step){
-    h+='<div class="step-card" style="border-left:4px solid '+step.color+'">';
-    h+='<div class="step-title" style="color:'+step.color+'"><span style="font-size:16px">'+step.icon+'</span>'+step.title+'</div>';
-    h+='<div class="step-note">'+step.note+'</div>';
-    step.checks.forEach(function(c){
-      var done=S.ck[c.id];
-      h+='<div class="chk-row'+(done?" done":"")+'" data-ck="'+c.id+'"><div class="chk-box">'+(done?"✓":"")+'</div><span style="font-size:13px;flex:1">'+c.label+'</span></div>';
-    });
-    h+='</div>';
+  /* Step checks */
+  var prevStep="";
+  CHECKS.forEach(function(c){
+    if(c.step!==prevStep){
+      var colors={S1:"#3b82f6",S2:"#10b981",S3:"#f59e0b",S4:"#8b5cf6","日程":"#ef4444"};
+      var titles={S1:"🤝 S1: YES取り2回",S2:"💐 S2: ほめる",S3:"🎯 S3: 目的を聞く",S4:"✨ S4: ビフォーアフター","日程":"📅 日程打診"};
+      h+='<div style="font-size:13px;font-weight:800;color:'+(colors[c.step]||"#64748b")+';margin:'+(prevStep?"12px":"0")+'  0 6px 0">'+(titles[c.step]||c.step)+'</div>';
+      prevStep=c.step;
+    }
+    var done=ck[c.id];
+    h+='<div data-ck="'+c.id+'" style="display:flex;align-items:center;gap:8px;padding:10px;border-radius:8px;margin-bottom:4px;border:1.5px solid '+(done?"#10b981":"#e2e8f0")+';background:'+(done?"#f0fdf4":"#fff")+';cursor:pointer"><div style="width:22px;height:22px;border-radius:6px;border:2px solid '+(done?"#10b981":"#d1d5db")+';background:'+(done?"#10b981":"#fff")+';display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0">'+(done?"✓":"")+'</div><div style="flex:1"><div style="font-size:13px">'+c.label+'</div><div style="font-size:10px;color:#94a3b8">'+c.note+'</div></div></div>';
   });
 
-  /* 暴走チェック */
-  h+='<div class="step-card" style="border-left:4px solid #ef4444"><div class="step-title" style="color:#ef4444">⚠️ 暴走チェック</div><div style="font-size:12px;color:#64748b;margin-bottom:8px">どのステップで暴走してしまいましたか？</div>';
-  [["none","暴走なし"],["s1","ステップ1で暴走"],["s2","ステップ2で暴走"],["s3","ステップ3で暴走"],["s4","ステップ4で暴走"],["s5","日程打診で暴走"]].forEach(function(b){
-    h+='<div class="radio-row'+(S.bousou===b[0]?" sel":"")+'" data-bs="'+b[0]+'"><div class="radio-dot"></div><span style="font-size:13px">'+b[1]+'</span></div>';
+  /* Bousou */
+  h+='<div style="font-size:13px;font-weight:800;color:#ef4444;margin:14px 0 6px">⚠️ 暴走チェック</div>';
+  BOUSOU_OPTS.forEach(function(b){
+    var sel=bousou===b.id;
+    h+='<div data-bs="'+b.id+'" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;margin-bottom:4px;border:1.5px solid '+(sel?"#ef4444":"#e2e8f0")+';background:'+(sel?"#fef2f2":"#fff")+';cursor:pointer"><div style="width:18px;height:18px;border-radius:50%;border:2px solid '+(sel?"#ef4444":"#d1d5db")+';background:'+(sel?"#ef4444":"#fff")+';flex-shrink:0"></div><span style="font-size:13px">'+b.label+'</span></div>';
   });
-  h+='</div>';
 
-  /* 切り返しアウト */
-  h+='<div class="step-card"><div class="step-title" style="color:#64748b">📝 切り返しできなかったアウト</div><textarea id="outTA" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;resize:vertical;box-sizing:border-box;font-size:13px" rows="3" placeholder="相手から言われて切り返せなかった言葉を記録...">'+S.outText+'</textarea></div>';
+  /* Out text */
+  h+='<div style="font-size:13px;font-weight:800;color:#64748b;margin:14px 0 6px">📝 切り返しできなかったアウト</div>';
+  h+='<textarea id="outTA" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;box-sizing:border-box;font-size:13px;resize:vertical" rows="3" placeholder="相手から言われて切り返せなかった言葉..."></textarea>';
 
-  /* 結果選択 */
-  h+='<div class="step-card"><div class="step-title" style="color:#1a237e">📊 架電結果</div><div id="rb" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px"></div>';
-  h+='<textarea id="memoTA" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;resize:vertical;box-sizing:border-box;font-size:13px" rows="2" placeholder="📝 メモ">'+S.memo+'</textarea></div>';
-
-  h+='<button id="sv" style="display:block;width:100%;padding:15px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:52px;cursor:pointer;font-family:inherit;margin-bottom:20px;opacity:'+(S.selRes?1:.4)+';background:'+(S.selRes==="appo"?"#1a237e":"linear-gradient(135deg,#10b981,#059669)")+'">'+(S.selRes==="appo"?"🎯 アポ詳細へ":"✅ 保存 → 次の架電先へ")+'</button>';
+  /* Result */
+  h+='<div style="font-size:13px;font-weight:800;color:#1a237e;margin:14px 0 6px">📊 架電結果</div>';
+  h+='<div id="rb" style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:8px"></div>';
+  h+='<textarea id="memoTA" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;box-sizing:border-box;font-size:13px;resize:vertical" rows="2" placeholder="📝 メモ"></textarea>';
+  h+='<button id="sv" style="display:block;width:100%;padding:14px;border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:800;margin:10px 0 20px;font-family:inherit;opacity:'+(selRes?1:.4)+';background:'+(selRes==="appo"?"#1a237e":"linear-gradient(135deg,#10b981,#059669)")+'">'+(selRes==="appo"?"🎯 アポ詳細へ":"✅ 保存 → 次の架電先へ")+'</button>';
   h+='</div>';
 }
 
-/* APPO FORM */
-else if(S.screen==="appo_form"){
-  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="skp" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">← スキップ</button><span style="font-size:15px;font-weight:800">🎯 アポ詳細</span></div>';
-  [["project","案件名"],["company","会社名"],["person","担当者名"]].forEach(function(f){h+='<div style="margin-bottom:6px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">'+f[1]+'</label><input id="af_'+f[0]+'" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;box-sizing:border-box" value="'+(S.af[f[0]]||"")+'"></div>'});
-  h+='<div style="margin-bottom:6px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">性別</label><div id="gb" style="display:flex;gap:6px"></div></div>';
-  [["phone","電話番号","tel"],["role","役職","text"],["address","住所","text"]].forEach(function(f){h+='<div style="margin-bottom:6px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">'+f[1]+'</label><input id="af_'+f[0]+'" type="'+f[2]+'" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;box-sizing:border-box" value="'+(S.af[f[0]]||"")+'"></div>'});
-  h+='<div style="margin-bottom:6px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">アポ日時</label><input id="af_datetime" type="datetime-local" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;box-sizing:border-box" value="'+(S.af.datetime||"")+'"></div><div style="margin-bottom:6px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">メール</label><input id="af_email" type="email" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;box-sizing:border-box" value="'+(S.af.email||"")+'"></div><div style="margin-bottom:10px"><label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px">人柄（重要）</label><textarea id="af_personality" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;resize:vertical;box-sizing:border-box" rows="2">'+(S.af.personality||"")+'</textarea></div>';
-  h+='<button id="sd" style="display:block;width:100%;padding:15px;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;min-height:52px;cursor:pointer;font-family:inherit;background:#1a237e">📧 Gmailで楠さんに送信</button>';
+/* ===== APPO FORM ===== */
+else if(V==="appo"){
+  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="bk" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px">← スキップ</button><b>🎯 アポ詳細</b></div>';
+  [["project","案件名"],["company","会社名"],["person","担当者名"]].forEach(function(f){h+='<div style="margin-bottom:6px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:2px">'+f[1]+'</div><input id="af_'+f[0]+'" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;box-sizing:border-box" value="'+(af[f[0]]||"")+'"></div>'});
+  h+='<div style="margin-bottom:6px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:2px">性別</div><div id="gb" style="display:flex;gap:6px"></div></div>';
+  [["phone","電話番号","tel"],["role","役職","text"],["address","住所","text"]].forEach(function(f){h+='<div style="margin-bottom:6px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:2px">'+f[1]+'</div><input id="af_'+f[0]+'" type="'+f[2]+'" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;box-sizing:border-box" value="'+(af[f[0]]||"")+'"></div>'});
+  h+='<div style="margin-bottom:6px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:2px">アポ日時</div><input id="af_datetime" type="datetime-local" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;box-sizing:border-box" value="'+(af.datetime||"")+'"></div>';
+  h+='<div style="margin-bottom:6px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:2px">メール</div><input id="af_email" type="email" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;box-sizing:border-box" value="'+(af.email||"")+'"></div>';
+  h+='<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:2px">人柄（重要）</div><textarea id="af_personality" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;box-sizing:border-box;resize:vertical" rows="2">'+(af.personality||"")+'</textarea></div>';
+  h+='<button id="sd" style="display:block;width:100%;padding:14px;border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:800;background:#1a237e;font-family:inherit">📧 Gmailで楠さんに送信</button>';
 }
 
 /* APPO LIST */
-else if(S.screen==="appolist"){h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="bk" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">← 戻る</button><span style="font-size:15px;font-weight:800">🎯 アポ一覧 ('+S.appoHist.length+')</span></div>';if(!S.appoHist.length)h+='<div style="text-align:center;padding:40px;color:#94a3b8">履歴なし</div>';else h+='<div id="apo"></div>'}
+else if(V==="appolist"){h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="bk" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px">← 戻る</button><b>🎯 アポ一覧 ('+appos.length+')</b></div>';if(!appos.length)h+='<div style="text-align:center;padding:40px;color:#94a3b8">履歴なし</div>';else h+='<div id="apo"></div>'}
 
 /* LIST */
-else if(S.screen==="list"){h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="bk" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px;font-weight:600">← 戻る</button><span style="font-size:15px;font-weight:800">リスト ('+S.prospects.length+')</span></div><div id="lst"></div>'}
+else if(V==="list"){h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button id="bk" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 12px;color:#64748b;font-size:12px">← 戻る</button><b>リスト ('+rows.length+')</b></div><div id="lst"></div>'}
 
 h+='</main>';root.innerHTML=h;
 
 /* ===== EVENTS ===== */
 function B(id,fn){var el=document.getElementById(id);if(el)el.addEventListener("click",fn)}
-B("lo",function(){S.role=null;S.screen="login";S.pin="";stopTimer();R()});
-B("ib",function(e){if(e.target.id==="ib"){S.showImp=false;R()}});
-B("cib",function(){S.showImp=false;R()});
-B("imb",doImport);B("sc",startCall);
-B("sv",function(){if(S.selRes)saveResult()});B("sd",sendAppo);
-B("skp",function(){goNext();S.screen="home";flash("スキップ")});
-B("bk",function(){S.screen="home";R()});
-B("pv",function(){if(S.ci>0){S.ci--;R()}});B("nx",function(){if(S.ci<S.prospects.length-1){S.ci++;R()}});
-B("sk",doSkip);B("us",undoSkips);
-B("rf",function(){if(S.role&&S.role!=="admin"){S.loading=true;R();fetchList(S.role,function(ok,c){S.loading=false;if(ok)flash("✅ "+c+"件取得");R()})}});
-B("dialBtn",function(){var cur=S.prospects[S.ci];if(cur)showDialPrompt(gf(cur,"ph"))});
-B("dialBtn2",function(){var cur=S.prospects[S.ci];if(cur)showDialPrompt(gf(cur,"ph"))});
-var ts=document.getElementById("ts");if(ts)ts.addEventListener("change",function(){S.adminTarget=this.value});
-document.querySelectorAll("[data-ld]").forEach(function(el){el.addEventListener("click",function(){S.adminTarget=el.getAttribute("data-ld");S.showImp=true;S.impErr="";R()})});
-
-/* Checklist clicks */
-document.querySelectorAll("[data-ck]").forEach(function(el){
-  el.addEventListener("click",function(){var id=el.getAttribute("data-ck");S.ck[id]=!S.ck[id];R()});
-});
-/* Bousou radio */
-document.querySelectorAll("[data-bs]").forEach(function(el){
-  el.addEventListener("click",function(){S.bousou=el.getAttribute("data-bs");R()});
-});
+B("lo",function(){U=null;V="login";pin="";clearInterval(tref);D()});
+B("ib",function(e){if(e.target.id==="ib"){showImp=false;D()}});
+B("cib",function(){showImp=false;D()});
+B("imb",doImport);
+B("sc",function(){ck={};tsec=0;selRes=null;bousou="none";clearInterval(tref);tref=setInterval(function(){tsec++;var el=document.getElementById("tmr");if(el)el.textContent=timerStr(tsec)},1000);V="call";D()});
+B("sv",function(){if(selRes)saveCall()});
+B("sd",sendAppo);
+B("bk",function(){if(V==="appo"){goNext()}V="home";D()});
+B("pv",function(){if(ci>0){ci--;D()}});B("nx",function(){if(ci<rows.length-1){ci++;D()}});
+B("sk",function(){skipped[ci]=true;sv("sk-"+U.id,skipped);flash("⏭ スキップ");goNext();D()});
+B("us",function(){skipped={};sv("sk-"+U.id,{});flash("全解除");D()});
+B("rf",function(){if(U&&U!=="admin"){loading=true;D();fetchList(U,function(ok,n){loading=false;if(ok)flash("✅ "+n+"件取得");D()})}});
+B("ml",function(){V="list";D()});B("ma",function(){V="appolist";D()});
+document.querySelectorAll("[data-ld]").forEach(function(el){el.addEventListener("click",function(){showImp=true;impErr="";D()})});
+document.querySelectorAll("[data-ck]").forEach(function(el){el.addEventListener("click",function(){var id=el.getAttribute("data-ck");ck[id]=!ck[id];D()})});
+document.querySelectorAll("[data-bs]").forEach(function(el){el.addEventListener("click",function(){bousou=el.getAttribute("data-bs");D()})});
 
 /* Attendance */
-var ab=document.getElementById("ab");
-if(ab){var att=todayAtt();[["ci","出勤","#10b981",!!att.ci],["bs","休憩始","#f59e0b",!att.ci||!!att.bs],["be","休憩終","#3b82f6",!att.bs||!!att.be],["co","退勤","#5c6bc0",!att.ci||!!att.co]].forEach(function(x){var b=document.createElement("button");b.textContent=x[1];b.style.cssText="padding:10px 4px;border:2px solid "+x[2]+";border-radius:8px;background:#fff;font-size:12px;font-weight:700;min-height:42px;text-align:center;color:"+x[2]+";opacity:"+(x[3]?0.25:1)+";cursor:pointer;font-family:inherit";b.disabled=x[3];if(!x[3])b.onclick=function(){doPunch(x[0])};ab.appendChild(b)})}
-
-/* Menu */
-var mb=document.getElementById("mb");
-if(mb){var unc=S.prospects.filter(function(_,i){return shouldShow(i)}).length;
-[["📑 リスト","残"+unc,function(){S.screen="list";R()}],["🎯 アポ履歴",S.appoHist.length+"件",function(){S.screen="appolist";R()}]].forEach(function(m){var b=document.createElement("button");b.innerHTML=m[0]+'<br><span style="font-size:10px;color:#94a3b8">'+m[1]+'</span>';b.style.cssText="padding:14px 12px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;color:#1e293b;font-size:14px;font-weight:700;text-align:left;cursor:pointer;font-family:inherit";b.onclick=m[2];mb.appendChild(b)})}
+var atb=document.getElementById("atb");
+if(atb){var at=todayAtt();[["ci","出勤","#10b981",!!at.ci],["bs","休憩始","#f59e0b",!at.ci||!!at.bs],["be","休憩終","#3b82f6",!at.bs||!!at.be],["co","退勤","#5c6bc0",!at.ci||!!at.co]].forEach(function(x){var b=document.createElement("button");b.textContent=x[1];b.style.cssText="padding:10px 4px;border:2px solid "+x[2]+";border-radius:8px;background:#fff;font-size:12px;font-weight:700;min-height:40px;text-align:center;color:"+x[2]+";opacity:"+(x[3]?0.25:1)+";font-family:inherit";b.disabled=x[3];if(!x[3])b.onclick=function(){punch(x[0])};atb.appendChild(b)})}
 
 /* Result buttons */
 var rb=document.getElementById("rb");
-if(rb){RTYPES.forEach(function(r){var b=document.createElement("button");var sel=S.selRes===r.id;b.style.cssText="display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 2px;border:2px solid "+(sel?r.c:"#e2e8f0")+";border-radius:10px;background:"+(sel?r.c+"10":"#fff")+";min-height:48px;cursor:pointer;font-family:inherit";b.innerHTML='<span style="font-size:18px">'+r.i+'</span><span style="font-size:9px;font-weight:700;color:'+(sel?r.c:"#94a3b8")+'">'+r.l+'</span>';b.onclick=function(){S.selRes=r.id;R()};rb.appendChild(b)})}
+if(rb){RESULTS.forEach(function(r){var b=document.createElement("button");var sel=selRes===r.id;b.style.cssText="display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 2px;border:2px solid "+(sel?r.c:"#e2e8f0")+";border-radius:10px;background:"+(sel?r.c+"10":"#fff")+";min-height:48px;font-family:inherit";b.innerHTML='<span style="font-size:18px">'+r.i+'</span><span style="font-size:10px;font-weight:700;color:'+(sel?r.c:"#94a3b8")+'">'+r.l+'</span>';b.onclick=function(){selRes=r.id;D()};rb.appendChild(b)})}
 
 /* Gender */
 var gb=document.getElementById("gb");
-if(gb){["男","女"].forEach(function(g){var b=document.createElement("button");b.textContent=g;var sel=S.af.gender===g;b.style.cssText="flex:1;padding:8px;border:2px solid "+(sel?"#3b82f6":"#e2e8f0")+";border-radius:8px;background:"+(sel?"#eff6ff":"#fff")+";color:"+(sel?"#3b82f6":"#64748b")+";font-size:13px;font-weight:700;cursor:pointer;font-family:inherit";b.onclick=function(){S.af.gender=g;R()};gb.appendChild(b)})}
+if(gb){["男","女"].forEach(function(g){var b=document.createElement("button");b.textContent=g;var sel=af.gender===g;b.style.cssText="flex:1;padding:8px;border:2px solid "+(sel?"#3b82f6":"#e2e8f0")+";border-radius:8px;background:"+(sel?"#eff6ff":"#fff")+";color:"+(sel?"#3b82f6":"#64748b")+";font-size:13px;font-weight:700;font-family:inherit";b.onclick=function(){af.gender=g;D()};gb.appendChild(b)})}
 
 /* List */
 var lst=document.getElementById("lst");
-if(lst){var tc=todayCalls();S.prospects.forEach(function(row,i){var cl=isCalled(i),sk=isSkipped(i);var ri=null;if(cl){var m=tc.filter(function(c){return c.pi===i});if(m.length)for(var j=0;j<RTYPES.length;j++)if(RTYPES[j].id===m[0].r){ri=RTYPES[j];break}}var d=document.createElement("div");d.style.cssText="padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:"+(i===S.ci?"#eff6ff":sk?"#fffbeb":cl?"#f8fafc":"#fff")+";border-radius:8px;margin-bottom:2px";d.innerHTML='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#94a3b8;width:22px">'+(i+1)+'</span><span style="flex:1;font-size:14px;font-weight:700;'+(sk?"text-decoration:line-through;color:#94a3b8":"")+'">'+(gf(row,"co")||"行"+(i+1))+'</span>'+(sk?'<span style="font-size:9px;padding:2px 4px;border-radius:4px;background:#fef3c7;color:#92400e">スキップ</span>':cl&&ri?'<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:'+ri.c+'15;color:'+ri.c+';font-weight:700">'+ri.i+ri.l+'</span>':'<span style="font-size:9px;padding:2px 4px;border-radius:4px;background:#f1f5f9;color:#94a3b8">未</span>')+'</div>'+(gf(row,"ph")?'<div style="font-size:12px;color:#3b82f6;margin-top:2px;margin-left:28px">📞'+gf(row,"ph")+'</div>':'');d.onclick=function(){S.ci=i;S.screen="home";R()};lst.appendChild(d)})}
+if(lst){var tc=tdc();rows.forEach(function(row,i){var cl=called(i),sk=skipped[i];
+  var ri=null;if(cl){var m=tc.filter(function(c){return c.i===i});if(m.length)RESULTS.forEach(function(r){if(r.id===m[0].r)ri=r})}
+  var d=document.createElement("div");d.style.cssText="padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:"+(i===ci?"#eff6ff":sk?"#fffbeb":cl?"#f8fafc":"#fff")+";border-radius:8px;margin-bottom:2px";
+  d.innerHTML='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#94a3b8;width:22px">'+(i+1)+'</span><span style="flex:1;font-size:14px;font-weight:700;'+(sk?"text-decoration:line-through;color:#94a3b8":"")+'">'+(gf(row,"co")||"行"+(i+1))+'</span>'+(sk?'<span style="font-size:9px;padding:2px 4px;border-radius:4px;background:#fef3c7;color:#92400e">スキップ</span>':cl&&ri?'<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:'+ri.c+'15;color:'+ri.c+';font-weight:700">'+ri.i+ri.l+'</span>':'<span style="font-size:9px;padding:2px 4px;border-radius:4px;background:#f1f5f9;color:#94a3b8">未</span>')+'</div>'+(gf(row,"ph")?'<div style="font-size:12px;color:#3b82f6;margin-top:2px;margin-left:28px">📞'+gf(row,"ph")+'</div>':'');
+  d.onclick=function(){ci=i;V="home";D()};lst.appendChild(d)})}
 
 /* Appo list */
 var apo=document.getElementById("apo");
-if(apo){S.appoHist.forEach(function(a){var d=document.createElement("div");d.style.cssText="background:#fff;border-radius:14px;padding:14px;border:1px solid #e2e8f0;margin-bottom:8px";d.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:14px;font-weight:800;color:#1a237e">'+(a.company||"—")+'</span><span style="font-size:10px;color:#94a3b8">'+(a.date||"")+'</span></div><div style="font-size:12px;color:#475569;line-height:1.7">'+(a.project?'<div>📋 '+a.project+'</div>':'')+'<div>👤 '+(a.person||"")+'（'+(a.gender||"")+'）'+(a.role?" / "+a.role:"")+'</div>'+(a.phone?'<div style="color:#3b82f6;font-weight:700;cursor:pointer" data-ph="'+a.phone+'">📞 '+a.phone+'（発信）</div>':'')+(a.address?'<div>📍 '+a.address+'</div>':'')+(a.datetime?'<div>📅 '+a.datetime+'</div>':'')+(a.email?'<div>✉ '+a.email+'</div>':'')+(a.personality?'<div>💬 '+a.personality+'</div>':'')+'</div>';d.querySelectorAll("[data-ph]").forEach(function(el){el.addEventListener("click",function(){showDialPrompt(el.getAttribute("data-ph"))})});apo.appendChild(d)})}
+if(apo){appos.forEach(function(a){var d=document.createElement("div");d.style.cssText="background:#fff;border-radius:12px;padding:12px;border:1px solid #e2e8f0;margin-bottom:8px";
+  var ph=a.phone?a.phone.replace(/[^\d+\-]/g,""):"";
+  d.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:3px"><b style="color:#1a237e">'+(a.company||"—")+'</b><span style="font-size:10px;color:#94a3b8">'+(a.date||"")+'</span></div><div style="font-size:12px;color:#475569;line-height:1.7">'+(a.project?'<div>📋 '+a.project+'</div>':'')+'<div>👤 '+(a.person||"")+'（'+(a.gender||"")+'）'+(a.role?" / "+a.role:"")+'</div>'+(ph?'<div><a href="tel:'+ph+'" style="color:#3b82f6;font-weight:700;text-decoration:none">📞 '+a.phone+'（発信）</a></div>':'')+(a.address?'<div>📍 '+a.address+'</div>':'')+(a.datetime?'<div>📅 '+a.datetime+'</div>':'')+(a.email?'<div>✉ '+a.email+'</div>':'')+(a.personality?'<div>💬 '+a.personality+'</div>':'')+'</div>';
+  apo.appendChild(d)})}
 
-}catch(e){document.getElementById("root").innerHTML='<div style="padding:20px;color:red"><b>エラー:</b> '+String(e.message||e)+'<br><button onclick="location.reload()" style="margin-top:10px;padding:10px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px">再読み込み</button></div>'}
+}catch(e){document.getElementById("root").innerHTML='<div style="padding:20px;color:red"><b>エラー:</b> '+e.message+'<br><button onclick="location.reload()" style="margin-top:10px;padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px">再読み込み</button></div>'}
 }
-R();
+D();
 })();
 </script>
 </body>
